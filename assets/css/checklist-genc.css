@@ -1,0 +1,616 @@
+/* ============================================================================
+   CHECKLIST AM - GENERASI C  (design system)                    23 Sep 2026
+
+   Baseline UI untuk halaman mesin (mulai dari Conveyor). SEMUA aturan di file
+   ini di-scope ke class .genc (dan .genc-toast untuk notifikasi), jadi tidak
+   bisa mengubah tampilan halaman lama walau file ini ikut ter-load.
+
+   STRUKTUR
+     1. Token (warna, jarak, radius, font)   <- satu-satunya tempat ganti tema
+     2. Dasar & layout halaman
+     3. Komponen: tombol, badge, kartu, KPI, kalender, tabel, form, dialog, toast
+     4. Responsif
+
+   TEMA
+   Semua warna lewat variabel --gc-*. Tema lain (mis. gelap) nanti cukup
+   menimpa variabel di [data-genc-theme="..."], tanpa menyentuh komponen.
+   ========================================================================= */
+
+/* ---------------------------------------------------------------- 1. TOKEN */
+.genc, .genc-toast, .gs-app { /* [GENC-24SEP26-SHELL] + .gs-app: kerangka app memakai token yang sama */
+    --gc-bg:            #f5f6f8;
+    --gc-surface:       #ffffff;
+    --gc-surface-2:     #f9fafb;
+    --gc-border:        #e4e7ec;
+    --gc-border-strong: #cfd4dc;
+    --gc-text:          #101828;
+    --gc-text-2:        #475467;
+    --gc-muted:         #667085;
+
+    --gc-primary:       #1d6fe8;
+    --gc-primary-hover: #175cc2;
+    --gc-primary-soft:  #eaf2fe;
+
+    --gc-ok:            #12863a;
+    --gc-ok-soft:       #e7f6ec;
+    --gc-nok:           #d92d20;
+    --gc-nok-soft:      #fdecea;
+    --gc-pr:            #b54708;
+    --gc-pr-soft:       #fef4e6;
+    --gc-pending:       #6941c6;
+    --gc-pending-soft:  #f2eefd;
+    --gc-empty:         #eaecf0;
+
+    --gc-radius-sm: 6px;
+    --gc-radius:    10px;
+    --gc-radius-lg: 14px;
+    --gc-shadow:    0 1px 2px rgba(16,24,40,.05);
+    --gc-shadow-lg: 0 12px 24px -6px rgba(16,24,40,.18), 0 4px 8px -4px rgba(16,24,40,.08);
+    --gc-focus:     0 0 0 3px rgba(29,111,232,.28);
+
+    --gc-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ------------------------------------------------------- 2. DASAR & LAYOUT */
+.genc {
+    background: var(--gc-bg);
+    color: var(--gc-text);
+    font-family: var(--gc-font);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 20px 24px 40px;
+    min-height: calc(100vh - 120px);
+    -webkit-font-smoothing: antialiased;
+}
+.genc *, .genc *::before, .genc *::after { box-sizing: border-box; }
+.genc a { color: var(--gc-primary); }
+.genc a:hover { color: var(--gc-primary-hover); text-decoration: none; }
+.genc h1, .genc h2, .genc h3, .genc h4 { font-family: var(--gc-font); color: var(--gc-text); margin: 0; }
+.genc p { margin: 0; }
+.genc .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.genc-container { max-width: 1280px; margin: 0 auto; }
+.genc-container--narrow { max-width: 880px; }
+
+.genc-crumbs { font-size: 12.5px; color: var(--gc-muted); margin-bottom: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+.genc-crumbs a { color: var(--gc-muted); }
+.genc-crumbs a:hover { color: var(--gc-text); }
+
+.genc-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.genc-title { font-size: 24px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
+.genc-subtitle { color: var(--gc-muted); margin-top: 4px; }
+.genc-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.genc-stack > * + * { margin-top: 16px; }
+.genc-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.genc-grow { flex: 1 1 auto; }
+.genc-muted { color: var(--gc-muted); }
+.genc-small { font-size: 12.5px; }
+.genc-strong { font-weight: 600; }
+.genc-nowrap { white-space: nowrap; }
+
+/* ---------------------------------------------------------- 3a. TOMBOL */
+.genc-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 38px; padding: 0 14px;
+    border: 1px solid var(--gc-border-strong); border-radius: var(--gc-radius-sm);
+    background: var(--gc-surface); color: var(--gc-text);
+    font: 600 14px/1 var(--gc-font); white-space: nowrap; cursor: pointer;
+    box-shadow: var(--gc-shadow);
+    transition: background-color .12s, border-color .12s, color .12s, box-shadow .12s;
+    text-decoration: none !important;
+}
+.genc-btn:hover { background: var(--gc-surface-2); color: var(--gc-text); }
+.genc-btn:focus-visible { outline: none; box-shadow: var(--gc-focus); }
+.genc-btn[disabled], .genc-btn.is-disabled { opacity: .5; cursor: not-allowed; pointer-events: none; }
+.genc-btn .fa { font-size: 14px; }
+
+.genc-btn--primary { background: var(--gc-primary); border-color: var(--gc-primary); color: #fff !important; }
+.genc-btn--primary:hover { background: var(--gc-primary-hover); border-color: var(--gc-primary-hover); color: #fff; }
+.genc-btn--success { background: var(--gc-ok); border-color: var(--gc-ok); color: #fff !important; }
+.genc-btn--success:hover { filter: brightness(.94); color: #fff; }
+.genc-btn--danger  { background: var(--gc-surface); border-color: #f4b8b3; color: var(--gc-nok) !important; }
+.genc-btn--danger:hover  { background: var(--gc-nok-soft); }
+.genc-btn--ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--gc-text-2); }
+.genc-btn--ghost:hover { background: var(--gc-empty); }
+.genc-btn--sm { height: 32px; padding: 0 10px; font-size: 13px; }
+.genc-btn--lg { height: 46px; padding: 0 20px; font-size: 15px; }
+.genc-btn--icon { width: 34px; height: 34px; padding: 0; }
+
+/* Dropdown export (tanpa bootstrap JS) */
+.genc-menu { position: relative; display: inline-block; }
+.genc-menu__list {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 240px;
+    background: var(--gc-surface); border: 1px solid var(--gc-border); border-radius: var(--gc-radius);
+    box-shadow: var(--gc-shadow-lg); padding: 6px; display: none;
+}
+.genc-menu.is-open .genc-menu__list { display: block; }
+.genc-menu__label { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--gc-muted); padding: 8px 10px 4px; }
+.genc-menu__item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: var(--gc-radius-sm); color: var(--gc-text) !important; }
+.genc-menu__item:hover { background: var(--gc-surface-2); }
+.genc-menu__item .fa { width: 16px; margin-top: 3px; color: var(--gc-muted); }
+.genc-menu__item small { display: block; color: var(--gc-muted); font-size: 12px; }
+.genc-menu__sep { height: 1px; background: var(--gc-border); margin: 6px 0; }
+
+/* ----------------------------------------------------------- 3b. BADGE */
+.genc-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 24px; padding: 0 9px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 600; white-space: nowrap;
+    background: var(--gc-empty); color: var(--gc-text-2);
+}
+.genc-badge .fa { font-size: 11px; }
+.genc-badge--ok      { background: var(--gc-ok-soft);      color: var(--gc-ok); }
+.genc-badge--nok     { background: var(--gc-nok-soft);     color: var(--gc-nok); }
+.genc-badge--pr      { background: var(--gc-pr-soft);      color: var(--gc-pr); }
+.genc-badge--pending { background: var(--gc-pending-soft); color: var(--gc-pending); }
+
+/* ----------------------------------------------------------- 3c. KARTU */
+.genc-card {
+    background: var(--gc-surface); border: 1px solid var(--gc-border);
+    border-radius: var(--gc-radius-lg); box-shadow: var(--gc-shadow);
+}
+.genc-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--gc-border); flex-wrap: wrap; }
+.genc-card__title { font-size: 15px; font-weight: 650; }
+.genc-card__body { padding: 16px 18px; }
+.genc-card__foot { padding: 12px 18px; border-top: 1px solid var(--gc-border); }
+
+/* Notice (info / peringatan / error di dalam halaman) */
+.genc-notice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--gc-radius); border: 1px solid; font-size: 13.5px; }
+.genc-notice .fa { margin-top: 3px; }
+.genc-notice--info   { background: var(--gc-primary-soft); border-color: #c5dcfc; color: #0b4aa2; }
+.genc-notice--warn   { background: var(--gc-pr-soft); border-color: #f9d9a8; color: #8a3a06; }
+.genc-notice--danger { background: var(--gc-nok-soft); border-color: #f6c3be; color: #9b1c13; }
+.genc-notice ul { margin: 4px 0 0 18px; padding: 0; }
+
+/* ------------------------------------------------------------ 3d. KPI */
+.genc-kpis { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.genc-kpi { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.genc-kpi__label { font-size: 12.5px; color: var(--gc-muted); font-weight: 500; display: flex; gap: 6px; align-items: center; }
+.genc-kpi__value { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+.genc-kpi__value small { font-size: 14px; font-weight: 500; color: var(--gc-muted); letter-spacing: 0; }
+.genc-kpi__hint { font-size: 12.5px; color: var(--gc-text-2); }
+.genc-kpi--link { text-decoration: none !important; color: inherit !important; transition: border-color .12s, box-shadow .12s; }
+.genc-kpi--link:hover { border-color: var(--gc-border-strong); box-shadow: var(--gc-shadow-lg); }
+.genc-kpi.is-active { border-color: var(--gc-primary); box-shadow: 0 0 0 1px var(--gc-primary); }
+
+.genc-meter { height: 6px; background: var(--gc-empty); border-radius: 999px; overflow: hidden; }
+.genc-meter > span { display: block; height: 100%; background: var(--gc-ok); border-radius: 999px; }
+
+/* Kalender bulan: 1 kotak = 1 hari */
+.genc-cal { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; margin-top: 2px; }
+.genc-cal__d {
+    aspect-ratio: 1 / 1; min-width: 0; border-radius: 3px; background: var(--gc-empty);
+    font-size: 9.5px; line-height: 1; display: flex; align-items: center; justify-content: center; color: var(--gc-muted);
+}
+.genc-cal__d--ok     { background: #34a853; color: #fff; }
+.genc-cal__d--issue  { background: var(--gc-nok); color: #fff; }
+.genc-cal__d--missed { background: #fff; box-shadow: inset 0 0 0 1px var(--gc-border-strong); color: var(--gc-nok); }
+.genc-cal__d--future { background: transparent; box-shadow: inset 0 0 0 1px var(--gc-border); }
+.genc-cal__d--today  { outline: 2px solid var(--gc-primary); outline-offset: 1px; }
+.genc-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--gc-muted); }
+.genc-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+/* ------------------------------------------------------- 3e. TOOLBAR */
+.genc-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid var(--gc-border); }
+.genc-period { display: inline-flex; align-items: center; gap: 4px; }
+.genc-period__label { font-weight: 650; min-width: 128px; text-align: center; }
+.genc-select, .genc-input, .genc-textarea {
+    height: 38px; padding: 0 10px; border: 1px solid var(--gc-border-strong); border-radius: var(--gc-radius-sm);
+    background: var(--gc-surface); color: var(--gc-text); font: 14px var(--gc-font);
+    box-shadow: var(--gc-shadow); transition: border-color .12s, box-shadow .12s;
+}
+.genc-select { padding-right: 28px; }
+.genc-textarea { height: auto; min-height: 96px; padding: 10px 12px; width: 100%; resize: vertical; line-height: 1.5; }
+.genc-select:focus, .genc-input:focus, .genc-textarea:focus { outline: none; border-color: var(--gc-primary); box-shadow: var(--gc-focus); }
+.genc-search { position: relative; }
+.genc-search .fa { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--gc-muted); pointer-events: none; }
+.genc-search .genc-input { padding-left: 32px; width: 240px; }
+
+.genc-chips { display: inline-flex; background: var(--gc-empty); padding: 3px; border-radius: 8px; gap: 2px; }
+.genc-chip { padding: 5px 11px; border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--gc-text-2) !important; white-space: nowrap; }
+.genc-chip:hover { color: var(--gc-text) !important; }
+.genc-chip.is-active { background: var(--gc-surface); color: var(--gc-text) !important; box-shadow: var(--gc-shadow); }
+.genc-chip__count { font-weight: 500; color: var(--gc-muted); margin-left: 4px; }
+
+/* --------------------------------------------------------- 3f. TABEL */
+.genc-table-wrap { overflow-x: auto; }
+.genc-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.genc-table th {
+    text-align: left; font-size: 12px; font-weight: 600; color: var(--gc-muted); text-transform: uppercase; letter-spacing: .04em;
+    padding: 10px 14px; background: var(--gc-surface-2); border-bottom: 1px solid var(--gc-border); white-space: nowrap;
+}
+.genc-table td { padding: 12px 14px; border-bottom: 1px solid var(--gc-border); vertical-align: middle; }
+.genc-table tbody tr { transition: background-color .1s; }
+.genc-table tbody tr:hover { background: #fbfcfd; }
+.genc-table tbody tr:last-child td { border-bottom: none; }
+.genc-table .genc-col-actions { text-align: right; white-space: nowrap; }
+
+.genc-date { display: flex; flex-direction: column; }
+.genc-date__main { font-weight: 600; }
+.genc-date__sub { font-size: 12.5px; color: var(--gc-muted); }
+
+.genc-person { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.genc-avatar {
+    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--gc-primary-soft); color: var(--gc-primary); font-size: 11px; font-weight: 700; letter-spacing: .02em;
+}
+.genc-person__name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Strip hasil per item: 1 kotak = 1 item, urut nomor */
+.genc-strip { display: inline-flex; gap: 3px; vertical-align: middle; }
+.genc-strip__i { width: 10px; height: 18px; border-radius: 3px; background: var(--gc-empty); }
+.genc-strip__i--ok  { background: #34a853; }
+.genc-strip__i--nok { background: var(--gc-nok); }
+.genc-strip__i--pr  { background: #f79009; }
+.genc-result { display: flex; flex-direction: column; gap: 5px; }
+.genc-result__text { font-size: 12.5px; color: var(--gc-text-2); }
+.genc-result__text b { color: var(--gc-nok); font-weight: 600; }
+
+.genc-note { color: var(--gc-text-2); max-width: 280px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+.genc-empty { text-align: center; padding: 48px 20px; }
+.genc-empty__icon { width: 52px; height: 52px; border-radius: 50%; background: var(--gc-primary-soft); color: var(--gc-primary); display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 12px; }
+.genc-empty__title { font-size: 16px; font-weight: 650; margin-bottom: 4px; }
+
+.genc-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--gc-border); }
+.genc-pager__pages { display: inline-flex; gap: 4px; }
+.genc-pager__pages a, .genc-pager__pages span { min-width: 32px; height: 32px; padding: 0 8px; border-radius: var(--gc-radius-sm); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; color: var(--gc-text-2); border: 1px solid var(--gc-border); background: var(--gc-surface); }
+.genc-pager__pages .is-current { background: var(--gc-primary); border-color: var(--gc-primary); color: #fff; }
+
+/* ---------------------------------------------------------- 3g. FORM */
+.genc-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.genc-meta__k { font-size: 12px; color: var(--gc-muted); }
+.genc-meta__v { font-weight: 600; }
+
+.genc-section-title { display: flex; align-items: center; gap: 10px; }
+.genc-section-title__num { font-size: 12px; font-weight: 700; color: var(--gc-primary); background: var(--gc-primary-soft); border-radius: 999px; padding: 2px 9px; }
+
+.genc-item { display: grid; grid-template-columns: 30px 88px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--gc-border); scroll-margin-top: 90px; }
+.genc-item:last-child { border-bottom: none; }
+.genc-item.has-error { background: #fff8f7; box-shadow: inset 3px 0 0 var(--gc-nok); }
+.genc-item__no { width: 28px; height: 28px; border-radius: 50%; background: var(--gc-empty); color: var(--gc-text-2); font-weight: 700; font-size: 12.5px; display: flex; align-items: center; justify-content: center; }
+.genc-item.is-answered .genc-item__no { background: var(--gc-ok-soft); color: var(--gc-ok); }
+.genc-item.is-issue .genc-item__no { background: var(--gc-nok-soft); color: var(--gc-nok); }
+.genc-thumb { display: block; width: 88px; height: 66px; border-radius: var(--gc-radius-sm); overflow: hidden; background: var(--gc-empty); border: 1px solid var(--gc-border); cursor: zoom-in; padding: 0; }
+.genc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.genc-item__name { font-weight: 650; font-size: 15px; }
+.genc-item__std { color: var(--gc-text-2); font-size: 13px; margin-top: 2px; }
+.genc-item__how { margin-top: 6px; font-size: 12.5px; }
+.genc-item__how summary { color: var(--gc-primary); cursor: pointer; display: inline-block; list-style: none; font-weight: 600; }
+.genc-item__how summary::-webkit-details-marker { display: none; }
+.genc-item__how summary::before { content: "\f05a"; font-family: FontAwesome; margin-right: 5px; }
+.genc-item__how dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0 0; color: var(--gc-text-2); }
+.genc-item__how dt { font-weight: 600; color: var(--gc-muted); }
+.genc-item__how dd { margin: 0; }
+.genc-item__err { color: var(--gc-nok); font-size: 12.5px; font-weight: 600; margin-top: 4px; }
+
+/* Segmented control OK / NOK / PR - radio asli, tetap bisa pakai keyboard */
+.genc-seg { display: inline-flex; border: 1px solid var(--gc-border-strong); border-radius: 8px; overflow: hidden; background: var(--gc-surface); box-shadow: var(--gc-shadow); }
+.genc-seg input { position: absolute; opacity: 0; pointer-events: none; }
+.genc-seg label {
+    margin: 0; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px;
+    font-weight: 600; font-size: 13.5px; color: var(--gc-text-2); cursor: pointer; user-select: none;
+    border-left: 1px solid var(--gc-border); transition: background-color .1s, color .1s;
+}
+.genc-seg label:first-of-type { border-left: none; }
+.genc-seg label:hover { background: var(--gc-surface-2); }
+.genc-seg input:focus-visible + label { box-shadow: inset var(--gc-focus); }
+.genc-seg input[value="OK"]:checked  + label { background: var(--gc-ok);  color: #fff; }
+.genc-seg input[value="NOK"]:checked + label { background: var(--gc-nok); color: #fff; }
+.genc-seg input[value="PR"]:checked  + label { background: #f79009;       color: #fff; }
+
+.genc-field__label { font-weight: 650; display: block; margin-bottom: 6px; }
+.genc-field__hint { font-size: 12.5px; color: var(--gc-muted); margin-top: 6px; }
+.genc-field.has-error .genc-textarea { border-color: var(--gc-nok); }
+.genc-req { color: var(--gc-nok); }
+.genc-req-if { display: none; color: var(--gc-nok); font-weight: 600; font-size: 12px; margin-left: 6px; }
+.genc-field.is-required .genc-req-if { display: inline; }
+
+/* Bar bawah form (progress + simpan) - selalu terlihat */
+.genc-savebar {
+    position: sticky; bottom: 0; z-index: 20; margin-top: 16px;
+    background: rgba(255,255,255,.96); backdrop-filter: blur(6px);
+    border: 1px solid var(--gc-border); border-radius: var(--gc-radius-lg); box-shadow: var(--gc-shadow-lg);
+    padding: 12px 16px; display: flex; align-items: center; gap: 16px;
+}
+.genc-savebar__progress { flex: 1 1 auto; min-width: 0; }
+.genc-savebar__text { font-size: 13px; color: var(--gc-text-2); margin-bottom: 6px; display: flex; gap: 10px; flex-wrap: wrap; }
+.genc-savebar__text b { color: var(--gc-text); }
+
+/* Detail */
+.genc-dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.genc-result-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 18px; border-bottom: 1px solid var(--gc-border); }
+.genc-result-row:last-child { border-bottom: none; }
+
+/* ---------------------------------------------------------- 3h. DIALOG */
+.genc-dialog { border: none; border-radius: var(--gc-radius-lg); padding: 0; box-shadow: var(--gc-shadow-lg); max-width: 440px; width: calc(100% - 32px); color: var(--gc-text); font-family: var(--gc-font); }
+.genc-dialog::backdrop { background: rgba(16,24,40,.45); }
+.genc-dialog__body { padding: 20px 22px 8px; }
+.genc-dialog__title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.genc-dialog__foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px 18px; }
+.genc-lightbox { max-width: min(92vw, 900px); background: #111; }
+.genc-lightbox img { display: block; max-width: 100%; max-height: 80vh; margin: 0 auto; }
+.genc-lightbox__cap { color: #eee; padding: 10px 14px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+
+/* ----------------------------------------------------------- 3i. TOAST */
+.genc-toast {
+    position: fixed; right: 20px; bottom: 20px; z-index: 2000; max-width: 420px;
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px 12px 16px;
+    border-radius: var(--gc-radius); background: #101828; color: #fff; box-shadow: var(--gc-shadow-lg);
+    font: 500 14px/1.45 var(--gc-font); animation: genc-in .2s ease-out;
+}
+.genc-toast .fa { margin-top: 3px; }
+.genc-toast--success .fa { color: #6ce9a6; }
+.genc-toast--danger  .fa { color: #fda29b; }
+.genc-toast--info    .fa { color: #84caff; }
+.genc-toast__close { background: none; border: none; color: #98a2b3; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 0 0 6px; margin-left: auto; }
+@keyframes genc-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+/* flash phpRAD membungkus toast dengan div .animated.bounce -> animasinya dimatikan */
+#flashmsgholder:has(.genc-toast) { animation: none !important; }
+
+/* ---------------------------------------------- 3b. TAB MESIN / UNIT  [GENC-24SEP26-DUMPING]
+   Satu entri menu, beberapa mesin/unit (K12, K7). Tiap tab = halaman sendiri
+   (link biasa, bukan JS). HP: tab bisa digeser ke samping. */
+.genc-tabs { margin: -4px 0 20px; border-bottom: 1px solid var(--gc-border); }
+.genc-tabs__list { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.genc-tabs__list::-webkit-scrollbar { display: none; }
+.genc-tab {
+    position: relative; display: flex; flex-direction: column; align-items: flex-start; flex: 0 0 auto;
+    min-height: 48px; padding: 8px 16px 10px; border-radius: var(--gc-radius-sm) var(--gc-radius-sm) 0 0;
+    color: var(--gc-text-2) !important; text-decoration: none !important; line-height: 1.25;
+}
+.genc-tab:hover { background: var(--gc-surface); color: var(--gc-text) !important; }
+.genc-tab:focus-visible { outline: none; box-shadow: var(--gc-focus); }
+.genc-tab__label { font-size: 15px; font-weight: 700; }
+.genc-tab__sub { font-size: 11.5px; color: var(--gc-muted); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.genc-tab.is-active { color: var(--gc-primary) !important; background: var(--gc-surface); }
+.genc-tab.is-active::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--gc-primary); }
+
+/* Isian lama (form Gen B, teks bebas) - K6 */
+.genc-legacy-note { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; background: var(--gc-empty); color: var(--gc-text-2); font-size: 11.5px; white-space: nowrap; }
+.genc-item__legacy { margin-top: 4px; font-size: 12.5px; color: var(--gc-pending); }
+
+/* ------------------------------------------ 3c. MULTI-UNIT & FOTO KOSONG  [GENC-24SEP26-AGV]
+   Tab berkelompok (AGV: Table Top Lift | Counterbalance), kartu pilih unit,
+   baris "Unit" di kartu info, dan kotak "Belum ada foto" yang bisa diklik (K19). */
+.genc-tabs--grouped .genc-tabs__list { gap: 0; }
+.genc-tabs__group { display: flex; flex-direction: column; flex: 0 0 auto; padding-top: 2px; }
+.genc-tabs__group + .genc-tabs__group { margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--gc-border); }
+.genc-tabs__group-label { font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--gc-muted); padding: 0 14px 1px; white-space: nowrap; }
+.genc-tabs__group-items { display: flex; gap: 2px; }
+.genc-tabs--grouped .genc-tab { min-height: 40px; padding: 6px 14px 10px; }
+
+.genc-meta--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.genc-meta__unit .genc-meta__v { color: var(--gc-primary); }
+
+.genc-thumb--none {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    cursor: help; color: var(--gc-muted); border-style: dashed; border-color: var(--gc-border-strong);
+    background: repeating-linear-gradient(135deg, var(--gc-surface-2) 0 6px, var(--gc-empty) 6px 12px);
+    font: 600 10.5px/1.15 var(--gc-font); text-align: center;
+}
+.genc-thumb--none .fa { font-size: 16px; opacity: .75; }
+.genc-thumb--none:hover { color: var(--gc-text-2); border-color: var(--gc-primary); }
+.genc-thumb--none:focus-visible { outline: none; box-shadow: var(--gc-focus); }
+
+.genc-unitpick { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.genc-unitpick__item {
+    position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+    padding: 16px 44px 16px 18px; color: var(--gc-text) !important; text-decoration: none !important;
+    transition: border-color .1s, box-shadow .1s;
+}
+.genc-unitpick__item:hover, .genc-unitpick__item:focus-visible { border-color: var(--gc-primary); box-shadow: var(--gc-focus); outline: none; }
+.genc-unitpick__name { font-size: 17px; font-weight: 700; }
+.genc-unitpick__go { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-size: 22px; color: var(--gc-muted); }
+
+/* [GENC-24SEP26-FORKLIFT] isian tambahan di luar item (jam kerja forklift) */
+.genc-extra { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.genc-input-suffix { display: flex; align-items: stretch; max-width: 260px; }
+.genc-input-suffix .genc-input { flex: 1 1 auto; min-width: 0; height: 44px; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.genc-input-suffix .genc-input:not(:last-child) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.genc-input-suffix__txt { display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--gc-border-strong); border-left: none; border-radius: 0 8px 8px 0; background: var(--gc-surface-2); color: var(--gc-text-2); font-weight: 600; font-size: 13px; }
+.genc-field.has-error .genc-input { border-color: var(--gc-nok); }
+.genc-field__last { display: block; margin-top: 3px; color: var(--gc-text-2); }
+.genc-date__extra { display: block; white-space: nowrap; }
+.genc-unitpick__type { margin-top: -6px; }
+.genc-date__extra .fa { margin-right: 3px; opacity: .7; }
+
+/* [GENC-24SEP26-PALLETMOVER] Menu "Approval" / "NOK History": ringkasan semua mesin (K28) */
+.genc-notice--ok { background: var(--gc-ok-soft); border-color: #b7e2c4; color: #0c5f29; }
+.genc-toolbar--flat { border-bottom: none; }
+.genc-hub__lead { margin: 0 0 12px; color: var(--gc-text-2); }
+.genc-hub { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+.genc-hub__card:not(.has-items) .genc-card__title { color: var(--gc-text-2); }
+.genc-hub__rows { padding: 4px 0; }
+.genc-hub__group { font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--gc-muted); padding: 10px 18px 2px; }
+.genc-hub__row {
+    display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 14px 6px 18px;
+    color: var(--gc-text) !important; text-decoration: none !important; transition: background .1s;
+}
+.genc-hub__row:hover, .genc-hub__row:focus-visible { background: var(--gc-surface-2); outline: none; }
+.genc-hub__row:focus-visible { box-shadow: inset 0 0 0 2px var(--gc-primary); }
+.genc-hub__row + .genc-hub__row { border-top: 1px solid var(--gc-border); }
+.genc-hub__name { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+.genc-hub__name small { display: block; font-weight: 400; font-size: 12px; color: var(--gc-muted); }
+.genc-hub__row:not(.has-items) .genc-hub__name { font-weight: 500; color: var(--gc-text-2); }
+.genc-hub__zero { color: var(--gc-muted); min-width: 24px; text-align: center; }
+.genc-hub__go { color: var(--gc-muted); font-size: 18px; }
+
+/* ------------------------------------------------------- 4. RESPONSIF */
+@media (max-width: 1100px) {
+    .genc-kpis { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+    .genc { padding: 14px 12px 32px; }
+    .genc-title { font-size: 20px; }
+    .genc-header { align-items: stretch; }
+    .genc-actions { width: 100%; }
+    .genc-actions > .genc-btn--primary { flex: 1 1 auto; }
+    .genc-kpis { grid-template-columns: 1fr; }
+    .genc-toolbar { padding: 12px; }
+    .genc-search, .genc-search .genc-input { width: 100%; }
+    .genc-chips { width: 100%; overflow-x: auto; }
+
+    /* Tabel -> kartu ringkas per baris (grid 2 kolom, tanpa label berulang):
+         tanggal   | approval
+         pelaksana | (kosong)
+         hasil (strip)
+         keterangan (kalau ada)
+         aksi                                                            */
+    .genc-table thead { display: none; }
+    .genc-table, .genc-table tbody { display: block; width: 100%; }
+    .genc-table tr {
+        display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; row-gap: 6px;
+        grid-template-areas: "date appr" "person person" "result result" "note note" "act act";
+        padding: 12px 14px; border-bottom: 1px solid var(--gc-border);
+    }
+    .genc-table td { display: block; border: none; padding: 0; min-width: 0; }
+    .genc-table td[data-label="Tanggal"]    { grid-area: date; }
+    .genc-table td[data-label="Approval"]   { grid-area: appr; text-align: right; }
+    .genc-table td[data-label="Pelaksana"]  { grid-area: person; }
+    .genc-table td[data-label="Hasil"]      { grid-area: result; }
+    .genc-table td[data-label="Keterangan"] { grid-area: note; }
+    .genc-table td.genc-col-actions         { grid-area: act; text-align: left; display: flex; gap: 6px; flex-wrap: wrap; }
+    .genc-table td[data-label="Keterangan"]:has(.genc-note .genc-muted) { display: none; }
+    .genc-table .genc-date { flex-direction: row; gap: 6px; align-items: baseline; }
+    .genc-table .genc-avatar { width: 24px; height: 24px; font-size: 9.5px; }
+    .genc-table .genc-person { gap: 8px; }
+    .genc-table .genc-note { max-width: none; font-size: 13px; }
+    .genc-table .genc-col-actions form { display: inline; }
+    .genc-table .genc-col-actions .genc-btn--success { flex: 1 1 auto; }
+
+    .genc-meta { grid-template-columns: 1fr; gap: 8px; }
+    .genc-item { grid-template-columns: 28px 64px minmax(0, 1fr); padding: 14px 12px; }
+    .genc-thumb { width: 64px; height: 52px; }
+    .genc-item__answer { grid-column: 1 / -1; }
+    .genc-seg { display: flex; width: 100%; }
+    .genc-seg label { flex: 1 1 0; justify-content: center; height: 46px; padding: 0 6px; }
+    .genc-savebar { flex-direction: column; align-items: stretch; gap: 10px; border-radius: var(--gc-radius); }
+    .genc-savebar .genc-btn { width: 100%; }
+    .genc-dl { grid-template-columns: 1fr 1fr; }
+    .genc-tabs { margin-left: -12px; margin-right: -12px; padding: 0 8px; }
+    .genc-tab { padding: 8px 14px 10px; }
+    .genc-tabs--grouped .genc-tab { padding: 6px 12px 10px; }
+    .genc-tabs__group-label { padding: 0 12px 1px; }
+    .genc-thumb--none { font-size: 10px; }
+    .genc-thumb--none .fa { font-size: 14px; }
+    .genc-unitpick { grid-template-columns: 1fr; }
+    .genc-hub { grid-template-columns: 1fr; }
+    .genc-input-suffix { max-width: none; }
+    .genc-toast { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+}
+
+/* Cetak halaman (Ctrl+P) - report resmi tetap lewat Export */
+@media print {
+    .genc { background: #fff; padding: 0; }
+    .genc-actions, .genc-toolbar, .genc-pager, .genc-savebar, .genc-col-actions { display: none !important; }
+}
+
+/* ==========================================================================
+   [GENC-24SEP26-SHELL] HOME/DASHBOARD & HALAMAN ADMIN (Users, Roles, Hak akses, App Logs, Akun)
+   ========================================================================== */
+/* --- dashboard */
+.genc-dash__meter { margin: 10px 0 2px; }
+.genc-dash__v--ok { color: var(--gc-ok); } .genc-dash__v--pr { color: var(--gc-pr); } .genc-dash__v--nok { color: var(--gc-nok); } .genc-dash__v--pending { color: var(--gc-pending); }
+.genc-dash__head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 12px; }
+.genc-dash__h { font-size: 16px; font-weight: 700; }
+.genc-dash__ico { color: var(--gc-muted); width: 18px; text-align: center; margin-right: 4px; }
+.genc-dash__count { font-size: 12px; font-weight: 600; color: var(--gc-muted); background: var(--gc-surface-2); border: 1px solid var(--gc-border); padding: 2px 8px; border-radius: 999px; }
+.genc-dash__count.is-done { color: var(--gc-ok); background: var(--gc-ok-soft); border-color: #b7e2c4; }
+.genc-dash__dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.genc-legend .genc-dash__dot { width: 9px; height: 9px; margin-right: 4px; vertical-align: -1px; border-radius: 50%; }
+.genc-dash__dot--ok { background: #34a853; } .genc-dash__dot--issue { background: var(--gc-nok); } .genc-dash__dot--none { background: transparent; box-shadow: inset 0 0 0 2px var(--gc-border-strong); }
+.genc-dash__row { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 0; min-height: 50px; }
+.genc-dash__row + .genc-dash__row { border-top: 1px solid var(--gc-border); }
+.genc-dash__main { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 6px 0 6px 18px; color: var(--gc-text) !important; text-decoration: none !important; }
+.genc-dash__main:hover b { text-decoration: underline; }
+.genc-dash__unit { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.genc-dash__unit b { font-weight: 600; }
+.genc-dash__unit small { font-size: 12px; color: var(--gc-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.genc-dash__row--issue small { color: var(--gc-nok); }
+.genc-dash__row--none b { color: var(--gc-text-2); font-weight: 500; }
+.genc-dash__go { color: var(--gc-muted) !important; font-size: 18px; width: 32px; text-align: center; }
+.genc-dash__foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 18px; border-top: 1px solid var(--gc-border); background: var(--gc-surface-2); font-size: 12.5px; color: var(--gc-text-2); border-radius: 0 0 var(--gc-radius-lg) var(--gc-radius-lg); }
+.genc-dash__foot > span:first-child { margin-right: auto; }
+
+/* --- tabel admin (bukan .genc-table: tampilan HP .genc-table khusus daftar checklist) */
+.genc-atable { width: 100%; border-collapse: separate; border-spacing: 0; }
+.genc-atable th { text-align: left; font-size: 12px; font-weight: 600; color: var(--gc-muted); text-transform: uppercase; letter-spacing: .04em; padding: 10px 14px; background: var(--gc-surface-2); border-bottom: 1px solid var(--gc-border); white-space: nowrap; }
+.genc-atable td { padding: 11px 14px; border-bottom: 1px solid var(--gc-border); vertical-align: middle; }
+.genc-atable tbody tr:hover { background: #fbfcfd; }
+.genc-atable tbody tr:last-child td { border-bottom: none; }
+.genc-atable .genc-col-actions { text-align: right; white-space: nowrap; }
+.genc-atable tr.is-muted td { color: var(--gc-muted); }
+.genc-tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--gc-surface-2); color: var(--gc-text-2); border: 1px solid var(--gc-border); white-space: nowrap; }
+.genc-tag--primary { background: var(--gc-primary-soft); color: var(--gc-primary); border-color: #c5dcfc; }
+.genc-tag--pending { background: var(--gc-pending-soft); color: var(--gc-pending); border-color: #ddd2fa; }
+.genc-tag--ok { background: var(--gc-ok-soft); color: var(--gc-ok); border-color: #b7e2c4; }
+.genc-tag--nok { background: var(--gc-nok-soft); color: var(--gc-nok); border-color: #f6c3be; }
+.genc-tag--pr { background: var(--gc-pr-soft); color: var(--gc-pr); border-color: #f9d9a8; }
+.genc-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+.genc-cellsub { display: block; font-size: 12px; color: var(--gc-muted); }
+
+/* --- form admin */
+.genc-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+.genc-form .is-wide { grid-column: 1 / -1; }
+.genc-form .genc-input, .genc-form .genc-select { width: 100%; height: 40px; }
+.genc-field__hint { display: block; font-size: 12px; color: var(--gc-muted); margin-top: 4px; }
+.genc-field__err { display: block; font-size: 12.5px; color: var(--gc-nok); margin-top: 4px; font-weight: 500; }
+.genc-field.has-error .genc-select { border-color: var(--gc-nok); }
+.genc-formbar { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+/* --- kartu role */
+.genc-roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.genc-role__name { font-size: 16px; font-weight: 700; }
+.genc-role__stats { display: flex; gap: 18px; margin: 10px 0 2px; }
+.genc-role__stats b { display: block; font-size: 20px; line-height: 1.1; }
+.genc-role__stats span { font-size: 12px; color: var(--gc-muted); }
+.genc-role__links { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* --- matriks hak akses */
+.genc-perm-wrap { overflow-x: auto; }
+.genc-perm { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 760px; }
+.genc-perm th, .genc-perm td { padding: 9px 10px; border-bottom: 1px solid var(--gc-border); }
+.genc-perm thead th { position: sticky; top: 0; z-index: 1; background: var(--gc-surface-2); font-size: 11.5px; font-weight: 700; color: var(--gc-muted); text-transform: uppercase; letter-spacing: .04em; text-align: center; white-space: nowrap; }
+.genc-perm thead th:first-child { text-align: left; }
+.genc-perm thead th small { display: block; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 11px; }
+.genc-perm td { text-align: center; }
+.genc-perm td:first-child { text-align: left; min-width: 220px; }
+.genc-perm tr.genc-perm__sec td { background: var(--gc-surface); font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--gc-muted); text-align: left; padding-top: 16px; }
+.genc-perm tbody tr:not(.genc-perm__sec):hover td { background: #fbfcfd; }
+.genc-perm__page b { font-weight: 600; display: block; }
+.genc-perm__page small { color: var(--gc-muted); font-size: 12px; }
+.genc-perm__na { color: var(--gc-border-strong); }
+.genc-perm__extra { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
+.genc-tick { position: relative; display: inline-flex; width: 22px; height: 22px; cursor: pointer; vertical-align: middle; }
+.genc-tick input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.genc-tick span { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--gc-border-strong); background: var(--gc-surface); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; transition: background .1s, border-color .1s; }
+.genc-tick input:checked + span { background: var(--gc-primary); border-color: var(--gc-primary); }
+.genc-tick input:checked + span::before { content: "\f00c"; font-family: FontAwesome; }
+.genc-tick input:focus-visible + span { box-shadow: var(--gc-focus); }
+.genc-tick input:disabled + span { opacity: .55; cursor: not-allowed; }
+.genc-tick.is-changed span { box-shadow: 0 0 0 2px var(--gc-pr); }
+.genc-chipbox { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 5px; border: 1px solid var(--gc-border); border-radius: 999px; font-size: 12px; cursor: pointer; background: var(--gc-surface); margin: 0; }
+.genc-chipbox input { margin: 0; accent-color: var(--gc-primary); }
+.genc-perm-bar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 18px; background: var(--gc-surface); border-top: 1px solid var(--gc-border); box-shadow: 0 -6px 16px -10px rgba(16,24,40,.2); border-radius: 0 0 var(--gc-radius-lg) var(--gc-radius-lg); }
+.genc-perm-bar__txt { flex: 1; font-size: 13px; color: var(--gc-text-2); }
+
+/* --- log */
+.genc-log__msg { font-weight: 500; }
+.genc-log__data { margin-top: 6px; background: var(--gc-surface-2); border: 1px solid var(--gc-border); border-radius: var(--gc-radius-sm); padding: 8px 10px; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }
+.genc-log details summary { cursor: pointer; color: var(--gc-primary); font-size: 12.5px; list-style: none; }
+.genc-log details summary::-webkit-details-marker { display: none; }
+
+@media (max-width: 768px) {
+    .genc-form { grid-template-columns: 1fr; }
+    .genc-atable thead { display: none; }
+    .genc-atable, .genc-atable tbody, .genc-atable tr, .genc-atable td { display: block; width: 100%; }
+    .genc-atable tr { padding: 12px 14px; border-bottom: 1px solid var(--gc-border); }
+    .genc-atable td { border: none; padding: 3px 0; }
+    .genc-atable td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--gc-muted); }
+    .genc-atable td.genc-col-actions { text-align: left; padding-top: 8px; }
+    .genc-atable td.genc-col-actions::before { display: none; }
+    .genc-dash__unit small { white-space: normal; }
+}
