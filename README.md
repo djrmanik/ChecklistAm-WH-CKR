@@ -1,2 +1,1 @@
-# break-into-quant
-quantitative analysis v1
+# Checklist Autonomous Maintenance - Warehouse Bintang Toedjoe Cikarang
