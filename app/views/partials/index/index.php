@@ -23,24 +23,18 @@ $gs_notice = $gs_pesan === 'keluar' ? 'Anda sudah keluar.' : ($gs_pesan === 'lup
     <section class="gs-login__art" aria-hidden="true">
         <div class="gs-login__brand">
             <span class="gs-mark"><i class="fa fa-check-square-o"></i></span>
-            <div>Checklist AM<small>Warehouse CKR &middot; PT Bintang Toedjoe</small></div>
+            <div>Checklist AM<small>Warehouse Cikarang</small></div>
         </div>
-        <div class="gs-login__hero">
-            <h1>Cek mesin pagi ini,<br>beres sebelum shift jalan.</h1>
-            <p>Checklist Autonomous Maintenance harian untuk semua alat &amp; mesin Warehouse Cikarang &mdash; dari isi, temuan, sampai approval SPV.</p>
-            <ul class="gs-login__points">
-                <li><i class="fa fa-hand-pointer-o"></i><div><b>Satu tap per item</b><span>Baik, Tidak baik, atau Perawatan &mdash; lengkap dengan cara cek & foto part.</span></div></li>
-                <li><i class="fa fa-exclamation-triangle"></i><div><b>Temuan langsung kelihatan</b><span>Item bermasalah terkumpul di NOK History untuk ditindaklanjuti.</span></div></li>
-                <li><i class="fa fa-check-square-o"></i><div><b>Approval dalam satu layar</b><span>SPV melihat antrean semua mesin sekaligus.</span></div></li>
-            </ul>
-            <div class="gs-login__strip"><i></i><i></i><i></i><i></i><i class="x"></i><i></i><i></i><i></i><i class="p"></i><i class="p"></i></div>
+        <div class="gs-login__hero"><?php /* [GENC-01OKT26-LOGIN] teks diringkas, latar foto warehouse */ ?>
+            <h1>Rawat mesin,<br>jaga operasional gudang.</h1>
+            <p>Checklist Autonomous Maintenance harian untuk semua alat &amp; mesin Warehouse Cikarang.</p>
         </div>
-        <div class="gs-login__legal">&copy; <?php echo date('Y'); ?> <?php echo SITE_NAME; ?></div>
+        <div class="gs-login__legal">&copy; <?php echo date('Y'); ?> Checklist AM &middot; Warehouse Cikarang</div>
     </section>
 
     <section class="gs-login__panel">
         <div class="gs-login__card">
-            <div class="gs-login__mobile-brand"><span class="gs-mark" aria-hidden="true"><i class="fa fa-check-square-o"></i></span> Checklist AM &middot; Warehouse CKR</div>
+            <div class="gs-login__mobile-brand"><span class="gs-mark" aria-hidden="true"><i class="fa fa-check-square-o"></i></span> Checklist AM &middot; Warehouse Cikarang</div>
             <h2>Masuk</h2>
             <p class="gs-lead">Gunakan akun yang diberikan admin warehouse.</p>
 

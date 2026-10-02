@@ -1,0 +1,15 @@
+cat > .gitignore << 'EOF'
+# File sampah macOS
+.DS_Store
+__MACOSX/
+
+# Log & debug
+*.log
+logs/*
+
+# File yang diupload user
+uploads/files/*
+uploads/photos/*
+uploads/cached/*
+
+EOF

@@ -12,7 +12,7 @@
 require_once __DIR__ . '/checklist_helpers.php'; // checklist_user_initial(), checklist_display_name(), checklist_nama_bulan()
 
 /** Versi aset - ganti angka ini kalau CSS/JS diubah, supaya browser tidak pakai cache lama. */
-if (!defined('GENC_ASSET_VERSION')) { define('GENC_ASSET_VERSION', '2026092405'); } // [GENC-24SEP26-SHELL] kerangka app + halaman admin (dulu 2026092404, pallet mover)
+if (!defined('GENC_ASSET_VERSION')) { define('GENC_ASSET_VERSION', '2026100101'); } // [GENC-01OKT26-LOGIN] foto login (dulu 2026092405)
 
 if (!function_exists('genc_e')) {
     function genc_e($v) { return htmlspecialchars((string) ($v === null ? '' : $v), ENT_QUOTES, 'UTF-8'); }

@@ -14,17 +14,17 @@ $v = function ($k) { return isset($_POST[$k]) ? genc_e($_POST[$k]) : ''; };
     <section class="gs-login__art" aria-hidden="true">
         <div class="gs-login__brand">
             <span class="gs-mark"><i class="fa fa-check-square-o"></i></span>
-            <div>Checklist AM<small>Warehouse CKR &middot; PT Bintang Toedjoe</small></div>
+            <div>Checklist AM<small>Warehouse Cikarang</small></div>
         </div>
         <div class="gs-login__hero">
             <h1>Akun operator<br>untuk isi checklist harian.</h1>
             <p>Akun baru otomatis berperan <b>Operator/Staff</b>: bisa mengisi dan melihat checklist mesin. Hak SPV, approval, atau admin diberikan oleh admin warehouse lewat menu Users.</p>
         </div>
-        <div class="gs-login__legal">&copy; <?php echo date('Y'); ?> <?php echo SITE_NAME; ?></div>
+        <div class="gs-login__legal">&copy; <?php echo date('Y'); ?> Checklist AM &middot; Warehouse Cikarang</div>
     </section>
     <section class="gs-login__panel">
         <div class="gs-login__card" style="max-width:420px">
-            <div class="gs-login__mobile-brand"><span class="gs-mark" aria-hidden="true"><i class="fa fa-check-square-o"></i></span> Checklist AM &middot; Warehouse CKR</div>
+            <div class="gs-login__mobile-brand"><span class="gs-mark" aria-hidden="true"><i class="fa fa-check-square-o"></i></span> Checklist AM &middot; Warehouse Cikarang</div>
             <h2>Daftar akun</h2>
             <p class="gs-lead">Isi data diri. Username dipakai sebagai nama pelaksana di checklist.</p>
             <?php if (!empty($gs_err)): ?>

@@ -16,7 +16,7 @@ $gs_logged = (user_login_status() == true);
 <?php endif; ?>
     <a class="gs-brand" href="<?php print_link(HOME_PAGE); ?>">
         <span class="gs-mark" aria-hidden="true"><i class="fa fa-check-square-o"></i></span>
-        <span class="gs-brand__text"><span class="gs-brand__name">Checklist AM</span><span class="gs-brand__sub">Warehouse CKR &middot; Autonomous Maintenance</span></span>
+        <span class="gs-brand__text"><span class="gs-brand__name">Checklist AM</span><span class="gs-brand__sub">Warehouse Cikarang</span></span>
     </a>
     <span class="gs-top__spacer"></span>
 <?php if ($gs_logged):
