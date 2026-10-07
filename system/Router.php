@@ -145,6 +145,16 @@ class Router
 		// all controller class name must start with capital letter
 		$controller_name = ucfirst($page) . "Controller";
 
+		// [GENC-06OKT26-MESIN] halaman mesin yang dibuat lewat menu "Mesin & Unit" (route am_*) tidak punya file
+		// controller sendiri: dilayani GencDynamicMachine kalau route-nya terdaftar di registry.
+		if (strpos($page, 'am_') === 0 && preg_match('/^am_[a-z0-9_]{1,60}$/', $page) && !class_exists($controller_name, true)) {
+			require_once ROOT . 'app/views/partials/_shared/genc_registry.php';
+			if (genc_reg_page($page)) {
+				require_once ROOT . 'app/controllers/_base/GencDynamicMachine.php';
+				$controller_name = 'GencDynamicMachine';
+			}
+		}
+
 		if (class_exists($controller_name, true)) {
 			// Set Router Page Variables. They can be accessed by calling Router::$page_variable_name
 			self::$page_name = $page;

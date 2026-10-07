@@ -23,8 +23,7 @@ $gs_logged = (user_login_status() == true);
     $gs_user  = isset($_SESSION[APP_ID . 'user_data']) ? $_SESSION[APP_ID . 'user_data'] : array();
     $gs_nama  = trim(isset($gs_user['nama']) ? (string) $gs_user['nama'] : '');
     $gs_nama  = $gs_nama !== '' ? ucwords($gs_nama) : ucwords((string) USER_NAME);
-    $gs_words = preg_split('/[\s._]+/', trim($gs_nama));
-    $gs_ini   = strtoupper(substr($gs_words[0], 0, 1) . (isset($gs_words[1]) ? substr($gs_words[1], 0, 1) : substr($gs_words[0], 1, 1)));
+    $gs_ini   = checklist_user_initial(USER_NAME);   // [GENC-06OKT26-INISIAL] avatar = paraf (diatur di menu Users), sama dengan di report
     $gs_role  = (string) ACL::$user_role;
 ?>
     <span class="gs-today"><i class="fa fa-calendar-o"></i> <?php echo genc_e(genc_date(time(), true)); ?></span>
@@ -60,8 +59,13 @@ $gs_logged = (user_login_status() == true);
         'kir3p01dp001' => 'fa-download', 'mesin_geprek' => 'fa-compress', 'conveyor' => 'fa-exchange',
         'palletmover/approval' => 'fa-check-square-o', 'palletmover/uncompleted' => 'fa-exclamation-triangle',
         'users' => 'fa-users', 'roles' => 'fa-shield', 'role_permissions' => 'fa-key', 'app_logs' => 'fa-history',
-        'master_select' => 'fa-list-ul',
+        'master_select' => 'fa-list-ul', 'mesin' => 'fa-sitemap',
     );
+    // [GENC-06OKT26-MESIN] unit baru Dumping/Geprek/Conveyor (route am_*) menandai menu mesinnya aktif
+    require_once ROOT . 'app/views/partials/_shared/genc_registry.php';
+    foreach (genc_reg_menu_match() as $gs_mp => $gs_more) {
+        $gs_match[$gs_mp] = array_merge(isset($gs_match[$gs_mp]) ? $gs_match[$gs_mp] : array($gs_mp), $gs_more);
+    }
     $gs_section_of = array('home' => 'main', 'palletmover/approval' => 'pantau', 'palletmover/uncompleted' => 'pantau',
         'users' => 'admin', 'master_select' => 'admin');
     $gs_sec_label  = array('main' => '', 'am' => 'Autonomous Maintenance', 'pantau' => 'Pantau', 'admin' => 'Admin & sistem', 'lain' => 'Lainnya');
@@ -75,6 +79,12 @@ $gs_logged = (user_login_status() == true);
             $gs_sections[isset($gs_section_of[$p]) ? $gs_section_of[$p] : 'lain'][] = $m;
         }
     }
+    // [GENC-06OKT26-MESIN] jenis mesin baru (menu Mesin & Unit) di bawah mesin bawaan + menu Mesin & Unit di Admin & sistem
+    foreach (genc_reg_active_jenis() as $gs_jp => $gs_jm) {
+        $gs_sections['am'][] = array('path' => $gs_jp, 'label' => $gs_jm['nama']);
+        $gs_icons[$gs_jp] = $gs_jm['ikon'];
+    }
+    array_unshift($gs_sections['admin'], array('path' => 'mesin', 'label' => 'Mesin & Unit'));
     $gs_is_active = function ($path) use ($gs_page, $gs_action, $gs_match) {
         $path = trim($path, '/');
         $seg  = explode('/', $path);

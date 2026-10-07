@@ -8,8 +8,7 @@ $d = $this->view_data; $u = $d['user']; $e = $d['errors']; $o = $d['old'];
 $val = function ($k) use ($u, $o) { return genc_e(isset($o[$k]) ? $o[$k] : $u[$k]); };
 $err = function ($k) use ($e) { return isset($e[$k]) ? '<span class="genc-field__err">' . genc_e($e[$k]) . '</span>' : ''; };
 $cls = function ($k) use ($e) { return 'genc-field' . (isset($e[$k]) ? ' has-error' : ''); };
-$w = preg_split('/[\s._]+/', trim((string) ($u['nama'] !== '' ? $u['nama'] : $u['username'])));
-$ini = strtoupper(substr($w[0], 0, 1) . (isset($w[1]) ? substr($w[1], 0, 1) : substr($w[0], 1, 1)));
+$ini = checklist_user_initial($u['username']);   // [GENC-06OKT26-INISIAL] paraf = avatar (diatur admin di menu Users)
 ?>
 <?php echo genc_assets_css(); ?>
 <div class="genc">
@@ -26,6 +25,7 @@ $ini = strtoupper(substr($w[0], 0, 1) . (isset($w[1]) ? substr($w[1], 0, 1) : su
             <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <span class="genc-tag genc-tag--primary"><i class="fa fa-shield"></i> <?php echo genc_e($d['role'] !== '' ? $d['role'] : 'Tanpa role'); ?></span>
                 <span class="genc-tag genc-tag--ok"><?php echo genc_e($u['account_status']); ?></span>
+                <span class="genc-tag genc-mono" title="Paraf di checklist &amp; report. Diatur admin di menu Users."><i class="fa fa-pencil"></i> Paraf <?php echo genc_e($ini); ?></span>
             </div>
         </div>
         <div class="genc-card__foot genc-small genc-muted"><i class="fa fa-info-circle"></i> Role Anda punya <?php echo (int) $d['n_perm']; ?> hak akses. Username, role, dan status hanya bisa diubah admin lewat menu Users.</div>

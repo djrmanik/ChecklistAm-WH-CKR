@@ -24,6 +24,7 @@
 
     /* ------------------------------------------------------------ dropdown */
     document.addEventListener('click', function (e) {
+        if (closest(e.target, '[data-genc-menu-keep]')) { return; }   /* [GENC-06OKT26-MESIN] kotak cari di dalam menu */
         var toggle = closest(e.target, '[data-genc-menu-toggle]');
         $all('[data-genc-menu].is-open').forEach(function (m) {
             if (!toggle || m !== closest(toggle, '[data-genc-menu]')) { m.classList.remove('is-open'); }
@@ -37,6 +38,35 @@
     });
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { $all('[data-genc-menu].is-open').forEach(function (m) { m.classList.remove('is-open'); }); }
+    });
+
+    /* [GENC-06OKT26-TANGGAL] HP: setelah kotak tanggal diklik, langsung gulir ke daftar (kalender ada jauh di atas) */
+    if (/[?&]hari=\d/.test(location.search) && window.innerWidth < 769) {
+        var tb = document.querySelector('.genc .genc-toolbar');
+        if (tb && tb.scrollIntoView) { setTimeout(function () { tb.scrollIntoView({ block: 'start' }); window.scrollBy(0, -70); }, 60); }
+    }
+
+    /* [GENC-06OKT26-MESIN] tombol "Semua unit": kotak cari menyaring daftar unit */
+    document.addEventListener('input', function (e) {
+        var inp = closest(e.target, '[data-genc-tabfilter]');
+        if (!inp) { return; }
+        var list = closest(inp, '.genc-menu__list');
+        var q = inp.value.toLowerCase().replace(/^\s+|\s+$/g, '');
+        var shown = 0;
+        $all('[data-genc-tabname]', list).forEach(function (a) {
+            var hit = q === '' || a.getAttribute('data-genc-tabname').indexOf(q) !== -1;
+            a.style.display = hit ? '' : 'none';
+            if (hit) { shown++; }
+        });
+        $all('[data-genc-tabgroup]', list).forEach(function (g) { g.style.display = q === '' ? '' : 'none'; });
+        var none = list.querySelector('.genc-tabs__none');
+        if (none) { none.hidden = shown > 0; }
+    });
+    document.addEventListener('click', function (e) {
+        var t = closest(e.target, '.genc-tabs__all [data-genc-menu-toggle]');
+        if (!t) { return; }
+        var inp = closest(t, '.genc-tabs__all').querySelector('[data-genc-tabfilter]');
+        if (inp) { setTimeout(function () { try { inp.focus(); } catch (x) {} }, 30); }
     });
 
     /* ------------------------------------------------------------ dialog */

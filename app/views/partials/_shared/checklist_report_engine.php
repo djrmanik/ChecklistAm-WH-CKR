@@ -24,6 +24,7 @@
  */
 
 require_once __DIR__ . '/checklist_helpers.php';
+require_once __DIR__ . '/genc_registry.php';   // [GENC-06OKT26-MESIN] mesin & unit yang ditambah lewat menu Mesin & Unit
 
 if (!function_exists('checklist_export_format')) {
     /**
@@ -52,13 +53,26 @@ if (!function_exists('checklist_load_machine')) {
      * @return array profil lengkap (sudah diberi nilai default)
      */
     function checklist_load_machine($profile, $overrides = array()) {
-        $file = __DIR__ . '/machines/' . basename($profile) . '.php';
-        if (!is_file($file)) {
-            throw new \RuntimeException("Profil mesin tidak ditemukan: $file");
+        // [GENC-06OKT26-MESIN] jenis mesin baru (am_*) -> profil dibentuk dari registry, bukan file
+        $conf = function_exists('genc_reg_profile') ? genc_reg_profile($profile) : null;
+        if ($conf === null) {
+            $file = __DIR__ . '/machines/' . basename($profile) . '.php';
+            if (!is_file($file)) {
+                throw new \RuntimeException("Profil mesin tidak ditemukan: $file");
+            }
+            $conf = include $file;
+            if (!is_array($conf)) {
+                throw new \RuntimeException("Profil mesin $profile harus mengembalikan array.");
+            }
+            // [GENC-06OKT26-MESIN] unit yang ditambah / dinonaktifkan lewat menu Mesin & Unit (sebelum overrides:
+            // forklift & pallet mover mengunci unit lewat overrides -> kunci tetap menang)
+            if (!empty($conf['unit_field']) && function_exists('genc_reg_merge_units')) {
+                $conf['units'] = genc_reg_merge_units(basename($profile), isset($conf['units']) ? $conf['units'] : array());
+            }
         }
-        $conf = include $file;
-        if (!is_array($conf)) {
-            throw new \RuntimeException("Profil mesin $profile harus mengembalikan array.");
+        // [GENC-06OKT26-ISI] isi checklist / gambar yang diubah lewat menu Mesin & Unit (tanpa perubahan: $conf tetap)
+        if (function_exists('genc_reg_apply_override')) {
+            $conf = genc_reg_apply_override(basename($profile), $conf);
         }
         $conf = array_merge($conf, (array) $overrides);
 
@@ -129,6 +143,7 @@ if (!function_exists('checklist_machine_units')) {
                 if ($n !== '') { $norms[$n] = true; }
             }
             $out[$slug] = array('label' => $label, 'norms' => array_keys($norms));
+            if (!empty($u['inactive'])) { $out[$slug]['inactive'] = true; }   // [GENC-06OKT26-MESIN] unit nonaktif (data tetap terbaca)
         }
         return $out;
     }
@@ -425,6 +440,7 @@ if (!function_exists('checklist_render_report')) {
                 // 1 unit = 1 halaman. Lihat checklist_report_multi.php.
                 $list = array();
                 foreach ($units as $u) {
+                    if (!empty($u['inactive'])) { continue; }   // [GENC-06OKT26-MESIN] unit nonaktif tidak ikut "semua unit"
                     $list[] = checklist_collect_report_data($db, $conf, $bulan, $tahun, $format, $u);
                 }
                 $filename .= '-Semua-Unit';

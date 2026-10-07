@@ -26,15 +26,12 @@ class GencHubReader extends GencChecklistBase{
 	/** Tidak dipakai (kelas ini tidak menampilkan halaman mesin); wajib ada karena abstract. */
 	protected function genc_conf(){ return array('page' => 'home', 'title' => 'Home'); }
 
+	/**
+	 * [GENC-06OKT26-MESIN] Daftar mesin dari registry (_shared/genc_registry.php): 6 mesin bawaan (urut & ikon
+	 * sama dengan dulu) + unit / jenis mesin yang ditambah lewat menu Mesin & Unit.
+	 */
 	protected function genc_hub_machines(){
-		return array(
-			array('title' => 'Pallet Mover & Stacker', 'icon' => 'fa-th-large', 'pages' => array('palletmover')),
-			array('title' => 'Forklift',               'icon' => 'fa-truck',    'pages' => array('forklift')),
-			array('title' => 'AGV',                    'icon' => 'fa-rocket',   'pages' => array('agv_table_top_lift', 'counterbalance')),
-			array('title' => 'Mesin Dumping',          'icon' => 'fa-download', 'pages' => array('kir3p01dp001', 'kir6p01dp001', 'kir7p01dp001')),
-			array('title' => 'Mesin Geprek',           'icon' => 'fa-compress', 'pages' => array('mesin_geprek')),
-			array('title' => 'Conveyor',               'icon' => 'fa-exchange', 'pages' => array('conveyor')),
-		);
+		return genc_reg_hub_machines();
 	}
 
 	/**
@@ -48,9 +45,8 @@ class GencHubReader extends GencChecklistBase{
 			$rows = array();
 			foreach($m['pages'] as $page){
 				if(!ACL::is_allowed($page . '/list')){ continue; }
-				$cls = ucfirst($page) . 'Controller';
-				if(!class_exists($cls)){ continue; }
-				$ctl = new $cls();
+				if(genc_reg_is_inactive($page, '')){ continue; }   // [GENC-06OKT26-MESIN] halaman nonaktif tidak tampil di Home
+				$ctl = genc_reg_controller($page);                 // [GENC-06OKT26-MESIN] juga route am_* (tanpa file controller)
 				if(!($ctl instanceof GencChecklistBase)){ continue; }
 				foreach($this->genc_hub_unit_rows($ctl, $page, $period) as $r){ $rows[] = $r; }
 			}
@@ -105,6 +101,7 @@ class GencHubReader extends GencChecklistBase{
 			return $out;
 		}
 		foreach($units as $slug => $u){
+			if(!empty($u['inactive'])){ continue; }   // [GENC-06OKT26-MESIN] unit nonaktif tidak tampil di Home
 			$t = isset($tab[$slug]) ? $tab[$slug] : array();
 			$out[] = $one($slug, isset($t['label']) ? $t['label'] : $u['label'], isset($t['group']) ? (string) $t['group'] : '', $u['label']);
 		}

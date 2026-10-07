@@ -24,6 +24,7 @@ class App_logsController extends SecureController{
 			'login'     => array('Login', "(RequestMsg <> '' AND Action LIKE 'userlog%')"),
 			'checklist' => array('Checklist', "(RequestMsg <> '' AND Action LIKE 'checklist.%')"),
 			'admin'     => array('User & hak akses', "(RequestMsg <> '' AND (Action LIKE 'users.%' OR Action LIKE 'roles.%' OR Action LIKE 'permissions.%' OR Action LIKE 'master_select.%'))"),
+			'mesin'     => array('Mesin & unit', "(RequestMsg <> '' AND Action LIKE 'mesin.%')"),   // [GENC-06OKT26-MESIN]
 			'lama'      => array('Arsip phpRAD', "(RequestMsg IS NULL OR RequestMsg = '')"),   // entri lama phpRAD tidak punya keterangan
 		);
 	}

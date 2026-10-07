@@ -67,6 +67,37 @@ $cls = function ($k) use ($e) { return 'genc-field' . (isset($e[$k]) ? ' has-err
                 <?php echo $err('account_status'); ?>
             </div>
         </div>
+        <?php /* [GENC-06OKT26-INISIAL] paraf di report & avatar - diatur di sini, bukan di kode */
+            $u_name = $is_add ? '' : (string) $d['user']['username'];
+            $ini_auto = $u_name !== '' ? checklist_default_initial($u_name) : '';
+            $ini_val  = isset($o['inisial']) ? (string) $o['inisial'] : '';
+            $ini_show = $ini_val !== '' ? $ini_val : ($ini_auto !== '' ? $ini_auto : '?'); ?>
+        <div class="genc-card__head" style="border-top:1px solid var(--gc-border)"><h2 class="genc-card__title">Paraf di checklist &amp; report</h2><span class="genc-small genc-muted">Kosongkan = otomatis</span></div>
+        <div class="genc-card__body genc-form">
+            <?php if (!empty($d['has_inisial'])): ?>
+            <div class="<?php echo $cls('inisial'); ?>">
+                <label class="genc-field__label" for="u-ini">Inisial (paraf)</label>
+                <div class="gu-ini">
+                    <span class="genc-avatar gu-ini__av" id="u-ini-prev" aria-hidden="true"><?php echo genc_e($ini_show); ?></span>
+                    <input id="u-ini" class="genc-input genc-mono gu-ini__in" name="inisial" maxlength="3" value="<?php echo genc_e($ini_val); ?>" placeholder="<?php echo genc_e($ini_auto !== '' ? $ini_auto : 'Otomatis'); ?>" autocapitalize="characters" spellcheck="false"
+                           oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');document.getElementById('u-ini-prev').textContent=this.value||this.placeholder.replace('Otomatis','?')">
+                </div>
+                <span class="genc-field__hint">2&ndash;3 huruf/angka, unik (kolom paraf report muat 3 huruf). Tercetak di baris <b>Paraf Pelaksana</b> &amp; <b>Paraf Spv</b> report semua mesin, dan di avatar daftar checklist.<?php echo $ini_auto !== '' ? ' Kosong = <b>' . genc_e($ini_auto) . '</b>.' : ''; ?></span>
+                <?php echo $err('inisial'); ?>
+            </div>
+            <?php else: ?>
+            <div class="genc-field">
+                <span class="genc-field__label">Inisial (paraf)</span>
+                <span class="genc-input gm-readonly genc-mono"><?php echo genc_e($ini_auto !== '' ? $ini_auto : 'otomatis dari username'); ?></span>
+                <span class="genc-field__hint">Supaya bisa diatur di sini, jalankan <span class="genc-mono">database/genc_06okt26.sql</span> sekali di phpMyAdmin.</span>
+            </div>
+            <?php endif; ?>
+            <div class="genc-field">
+                <span class="genc-field__label">Nama di report &amp; daftar</span>
+                <span class="genc-input gm-readonly"><?php echo genc_e($is_add ? 'Dari nama lengkap' : genc_person_name($u_name)); ?></span>
+                <span class="genc-field__hint">Orang di daftar resmi SPV memakai nama resmi; user lain memakai <b>Nama lengkap</b> di atas.</span>
+            </div>
+        </div>
         <div class="genc-card__head" style="border-top:1px solid var(--gc-border)"><h2 class="genc-card__title">Password</h2><?php if (!$is_add): ?><span class="genc-small genc-muted">Kosongkan kalau tidak diganti</span><?php endif; ?></div>
         <div class="genc-card__body genc-form">
             <div class="<?php echo $cls('password'); ?>">

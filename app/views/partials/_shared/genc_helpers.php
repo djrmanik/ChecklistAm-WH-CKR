@@ -12,7 +12,7 @@
 require_once __DIR__ . '/checklist_helpers.php'; // checklist_user_initial(), checklist_display_name(), checklist_nama_bulan()
 
 /** Versi aset - ganti angka ini kalau CSS/JS diubah, supaya browser tidak pakai cache lama. */
-if (!defined('GENC_ASSET_VERSION')) { define('GENC_ASSET_VERSION', '2026100101'); } // [GENC-01OKT26-LOGIN] foto login (dulu 2026092405)
+if (!defined('GENC_ASSET_VERSION')) { define('GENC_ASSET_VERSION', '2026100603'); } // [GENC-06OKT26] Mesin & Unit, tab banyak, inisial, tanggal bisa diklik, isi bawaan + kunci (dulu 2026100602)
 
 if (!function_exists('genc_e')) {
     function genc_e($v) { return htmlspecialchars((string) ($v === null ? '' : $v), ENT_QUOTES, 'UTF-8'); }
@@ -71,7 +71,8 @@ if (!function_exists('genc_person')) {
     function genc_person($username, $sub = '') {
         if (trim((string) $username) === '') { return '<span class="genc-muted">&ndash;</span>'; }
         $ini = checklist_user_initial($username);
-        $html  = '<div class="genc-person"><span class="genc-avatar" aria-hidden="true">' . genc_e(substr($ini, 0, 3)) . '</span>';
+        // [GENC-06OKT26-INISIAL] inisial dari menu Users boleh 4 huruf -> huruf diperkecil (3 huruf: HTML sama dengan dulu)
+        $html  = '<div class="genc-person"><span class="genc-avatar' . (strlen($ini) > 3 ? ' genc-avatar--4' : '') . '" aria-hidden="true">' . genc_e(substr($ini, 0, 4)) . '</span>';
         $html .= '<div style="min-width:0"><div class="genc-person__name">' . genc_e(genc_person_name($username)) . '</div>';
         if ($sub !== '') { $html .= '<div class="genc-small genc-muted">' . $sub . '</div>'; }
         return $html . '</div></div>';
@@ -168,9 +169,52 @@ if (!function_exists('genc_tabs')) {
                    . '</a>';
         }
         if ($grouped && $cur !== null) { $html .= '</div></div>'; }
-        return $html . '</div></nav>';
+        $html .= '</div>';
+        // [GENC-06OKT26-MESIN] unit banyak (> GENC_TABS_MANY, mis. setelah unit ditambah lewat menu Mesin & Unit):
+        // tab tetap bisa digeser + tombol "Semua unit (N)" berisi daftar & kotak cari. <= 8 tab: HTML sama dengan dulu.
+        if (count($g['tabs']) > GENC_TABS_MANY) {
+            $html = str_replace('<nav class="genc-tabs', '<nav class="genc-tabs genc-tabs--many', $html);
+            $html .= '<div class="genc-menu genc-tabs__all" data-genc-menu>'
+                   . '<button type="button" class="genc-btn genc-btn--sm" data-genc-menu-toggle aria-haspopup="true" aria-expanded="false"><i class="fa fa-th-list"></i> Semua unit <span class="genc-chip__count">' . count($g['tabs']) . '</span> <i class="fa fa-angle-down"></i></button>'
+                   . '<div class="genc-menu__list genc-tabs__alllist" role="menu">'
+                   . '<div class="genc-tabs__find" data-genc-menu-keep><i class="fa fa-search" aria-hidden="true"></i><input type="search" class="genc-input" placeholder="Cari unit..." aria-label="Cari unit" data-genc-tabfilter autocomplete="off"></div>';
+            $cur = null;
+            foreach ($g['tabs'] as $t) {
+                $grp = isset($t['group']) ? (string) $t['group'] : '';
+                if ($grp !== '' && $grp !== $cur) { $html .= '<div class="genc-menu__label" data-genc-tabgroup>' . genc_e($grp) . '</div>'; $cur = $grp; }
+                $up  = (isset($t['unit']) && $t['unit'] !== '') ? array('unit' => $t['unit']) : array();
+                $url = ($target === 'add' && $t['can_add']) ? genc_url($t['page'] . '/add', $up) : genc_url($t['page'], array_merge($params, $up));
+                $html .= '<a class="genc-menu__item' . ($t['active'] ? ' is-active' : '') . '" role="menuitem" href="' . genc_e($url) . '" data-genc-tabname="' . genc_e(strtolower($t['label'] . ' ' . $t['sub'] . ' ' . $grp)) . '">'
+                       . '<i class="fa ' . ($t['active'] ? 'fa-dot-circle-o' : 'fa-circle-o') . '" aria-hidden="true"></i><span>' . genc_e($t['label']) . ($t['sub'] !== '' ? '<small>' . genc_e($t['sub']) . '</small>' : '') . '</span></a>';
+            }
+            $html .= '<div class="genc-tabs__none" hidden>Tidak ada unit yang cocok.</div></div></div>';
+        }
+        return $html . '</nav>';
     }
 }
+/**
+ * [GENC-06OKT26-MESIN] Daftar item checklist (hanya baca) per bagian - panel kanan menu Mesin & Unit.
+ * $sections = profil (checklist_load_machine)['sections'].
+ */
+if (!function_exists('genc_preview_items')) {
+    function genc_preview_items($sections) {
+        $html = ''; $n = 0;
+        foreach ((array) $sections as $s) {
+            if (empty($s['items'])) { continue; }
+            $html .= '<div class="gm-prev"><div class="gm-prev__sec">' . genc_e(isset($s['short']) ? $s['short'] : $s['title']) . '</div><ol class="gm-prev__list">';
+            foreach ($s['items'] as $it) {
+                $n++;
+                $foto = !empty($it['foto']) ? '<img src="' . genc_e(set_url($it['foto'])) . '" alt="" width="44" height="34">' : '<span class="gm-prev__nofoto" aria-hidden="true"><i class="fa fa-camera"></i></span>';
+                $html .= '<li><span class="gm-prev__no">' . (int) $it['no'] . '</span>' . $foto . '<span class="gm-prev__txt"><b>' . genc_e($it['part']) . '</b>'
+                       . (!empty($it['standar']) ? '<small>' . genc_e($it['standar']) . '</small>' : '') . '</span></li>';
+            }
+            $html .= '</ol></div>';
+        }
+        return $n === 0 ? '<p class="genc-muted">Belum ada item.</p>' : $html;
+    }
+}
+/** [GENC-06OKT26-MESIN] Mulai berapa tab tombol "Semua unit" muncul (AGV sekarang 8 tab -> tidak berubah). */
+if (!defined('GENC_TABS_MANY')) { define('GENC_TABS_MANY', 8); }
 
 /**
  * [GENC-24SEP26-AGV] Kotak foto untuk item TANPA foto (K19): bukan kotak abu-abu bisu, tapi

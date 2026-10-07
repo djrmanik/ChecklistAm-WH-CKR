@@ -132,6 +132,7 @@ abstract class GencChecklistBase extends SecureController{
 				'unit_title_machine'=> false,
 				'extra_fields'      => array(),
 			), $this->genc_conf());
+			$c = genc_reg_apply_conf($c);   // [GENC-06OKT26-MESIN] Dumping/Geprek/Conveyor: tab unit baru dari menu Mesin & Unit (tanpa unit baru: $c tidak berubah)
 			$this->genc_cache['conf'] = $c;
 		}
 		return $this->genc_cache['conf'];
@@ -146,6 +147,7 @@ abstract class GencChecklistBase extends SecureController{
 		$c = $this->genc_c();
 		$v = $this->genc_view_conf_base();
 		if($c['foto_kosong'] !== ''){ $v['foto_kosong'] = $c['foto_kosong']; }
+		if(genc_reg_is_inactive($c['page'], '')){ $v['inactive'] = true; }   // [GENC-06OKT26-MESIN] halaman/mesin nonaktif
 		if(!$this->genc_multi()){ return $v; }
 		if($unit === null){ $unit = $this->genc_current_unit(true); }
 		$units = $this->genc_units();
@@ -155,7 +157,8 @@ abstract class GencChecklistBase extends SecureController{
 		$v['unit_known'] = isset($units[$unit]);
 		$v['unit_label'] = $label;
 		$v['units']      = array();
-		foreach($units as $slug => $u){ $v['units'][$slug] = $u['label']; }
+		foreach($units as $slug => $u){ if(!empty($u['inactive']) && $slug !== $unit){ continue; } $v['units'][$slug] = $u['label']; }   // [GENC-06OKT26-MESIN] unit nonaktif tidak ditawarkan
+		if(isset($units[$unit]) && !empty($units[$unit]['inactive'])){ $v['inactive'] = true; }
 		$v['machine']    = ($c['machine_title'] !== '' ? $c['machine_title'] : $c['title']);
 		$v['title']      = $label;
 		$v['name_lower'] = $label;
@@ -165,7 +168,7 @@ abstract class GencChecklistBase extends SecureController{
 			$p = $this->genc_profile();
 			$v['machine'] = isset($units[$unit]) ? $units[$unit]['machine'] : ($c['machine_title'] !== '' ? $c['machine_title'] : $c['title']);
 			if($c['unit_title_machine'] && isset($units[$unit])){ $v['title'] = $v['name_lower'] = $v['machine'] . ' ' . $label; }
-			$v['units_report']  = count(checklist_machine_units($p));
+			$v['units_report']  = count(array_filter(checklist_machine_units($p), function($u){ return empty($u['inactive']); }));   // [GENC-06OKT26-MESIN] unit aktif saja
 			$v['machine_all']   = ($c['machine_title'] !== '' ? $c['machine_title'] : $c['title']);   // semua jenis ("Forklift")
 			$v['unit_machines'] = array();
 			foreach($units as $slug => $u){ $v['unit_machines'][$slug] = $u['machine']; }
@@ -201,6 +204,7 @@ abstract class GencChecklistBase extends SecureController{
 			$active = ($t['page'] === $c['page']);
 			// [GENC-24SEP26-AGV] tab per unit: aktif kalau halaman DAN unitnya sama
 			if(isset($t['unit']) && $t['unit'] !== ''){ $active = $active && ($unit !== null && $t['unit'] === $unit); }
+			if(!$active && genc_reg_is_inactive($t['page'], isset($t['unit']) ? (string) $t['unit'] : '')){ continue; }   // [GENC-06OKT26-MESIN] unit nonaktif: tab disembunyikan
 			if(!$active && !ACL::is_allowed($t['page'] . '/list')){ continue; }
 			$t['active']  = $active;
 			$t['can_add'] = ACL::is_allowed($t['page'] . '/add');
@@ -233,6 +237,9 @@ abstract class GencChecklistBase extends SecureController{
 		if(!in_array($status, array('semua', 'tindakan', 'menunggu'), true)){ $status = 'semua'; }
 		$q       = isset($request->q) ? trim((string) $request->q) : '';
 		$page    = isset($request->hal) ? max(1, (int) $request->hal) : 1;
+		// [GENC-06OKT26-TANGGAL] kotak tanggal di kalender bisa diklik -> daftar 1 hari (?hari=6). Hari yang belum lewat diabaikan.
+		$hari    = isset($request->hari) ? (int) $request->hari : 0;
+		if($hari < 1 || $hari > $period['day_count'] || $period['is_future'] || ($period['is_current'] && $hari > (int) date('j'))){ $hari = 0; }
 
 		$month_rows = $this->genc_month_rows($period['bulan'], $period['tahun']);
 
@@ -252,7 +259,14 @@ abstract class GencChecklistBase extends SecureController{
 		// Filter status & pencarian dikerjakan di PHP: data 1 bulan cuma
 		// puluhan baris, dan ringkasan di atas tetap butuh data sebulan penuh.
 		$filtered = array();
+		$day_n = array('records' => 0, 'issues' => 0, 'pending' => 0);   // [GENC-06OKT26-TANGGAL] angka chip untuk hari terpilih
 		foreach($month_rows as $row){
+			if($hari > 0){
+				if((int) date('j', strtotime($row['date_created'])) !== $hari){ continue; }
+				$day_n['records']++;
+				if(!$this->genc_is_ok($row, $items)){ $day_n['issues']++; }
+				if(!$this->genc_is_approved($row)){ $day_n['pending']++; }
+			}
 			if($status === 'tindakan' && $this->genc_is_ok($row, $items)){ continue; }
 			if($status === 'menunggu' && $this->genc_is_approved($row)){ continue; }
 			if($q !== ''){
@@ -272,6 +286,8 @@ abstract class GencChecklistBase extends SecureController{
 			'period'       => $period,
 			'status'       => $status,
 			'q'            => $q,
+			'hari'         => $hari,          // [GENC-06OKT26-TANGGAL] 0 = sebulan
+			'day_counts'   => $day_n,
 			'page'         => $page,
 			'page_count'   => $page_count,
 			'total'        => $total,
@@ -279,7 +295,7 @@ abstract class GencChecklistBase extends SecureController{
 			'summary'      => $this->genc_summary($month_rows, $items, $period),
 			'today'        => $this->genc_today_rows($unit),
 			// [GENC-24SEP26-AGV] tab "lainnya" tidak punya unit -> tidak bisa isi dari sini
-			'can_add'      => ACL::is_allowed("$p/add") && $unit !== self::UNIT_OTHER,
+			'can_add'      => ACL::is_allowed("$p/add") && $unit !== self::UNIT_OTHER && !genc_reg_is_inactive($p, (string) $unit),   // [GENC-06OKT26-MESIN] nonaktif: tanpa tombol isi
 			'can_edit'     => ACL::is_allowed("$p/edit"),
 			'can_view'     => ACL::is_allowed("$p/view"),
 			'can_delete'   => ACL::is_allowed("$p/delete"),
@@ -326,6 +342,11 @@ abstract class GencChecklistBase extends SecureController{
 		// [GENC-24SEP26-AGV] multi-unit: unit WAJIB dari URL (?unit=<slug>, dibawa tab / tombol isi).
 		// Tanpa unit yang sah -> halaman pilih unit, form tidak ditampilkan (K7).
 		$unit = $this->genc_requested_unit();
+		// [GENC-06OKT26-MESIN] unit / mesin yang dinonaktifkan di menu Mesin & Unit tidak bisa diisi lagi (data lama tetap bisa dibuka)
+		if(genc_reg_is_inactive($c['page'], '') || ($unit !== '' && genc_reg_is_inactive($c['page'], $unit))){
+			$this->set_flash_msg($this->genc_toast('Unit / mesin ini sedang nonaktif (menu Mesin &amp; Unit) &mdash; checklist baru tidak bisa diisi.', 'info'), 'custom');
+			return $this->redirect($c['page'] . ($unit !== '' ? '?unit=' . $unit : ''));
+		}
 		if($this->genc_multi() && $unit === ''){
 			return $this->genc_render_unit_picker();
 		}
@@ -799,6 +820,7 @@ abstract class GencChecklistBase extends SecureController{
 		$u = isset($this->request->unit) ? strtolower(trim((string) $this->request->unit)) : '';
 		if(isset($units[$u])){ return $u; }
 		if($allow_other && $u === self::UNIT_OTHER){ return $u; }
+		foreach($units as $slug => $x){ if(empty($x['inactive'])){ return $slug; } }   // [GENC-06OKT26-MESIN] unit pertama yang AKTIF
 		reset($units);
 		return key($units);
 	}
@@ -935,6 +957,8 @@ abstract class GencChecklistBase extends SecureController{
 			$has_items = true;
 			$raw = (string) $row[$it['db']];
 			$std = strtoupper(trim($raw));
+			// [GENC-06OKT26-ISI] item yang ditambah lewat menu: checklist lama (sebelum item ada) kosong -> bukan temuan
+			if(!empty($it['baru']) && $std === ''){ $vals[$it['db']] = ''; continue; }
 			if(!$legacy_mode){
 				// perilaku lama conveyor/geprek, tidak diubah
 				$vals[$it['db']] = $raw;

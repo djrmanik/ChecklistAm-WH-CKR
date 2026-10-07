@@ -10,7 +10,7 @@
 if (!function_exists('genc_perm_catalog')) {
     function genc_perm_catalog() {
         $m = array('list', 'view', 'add', 'edit', 'delete', 'approve');
-        return array(
+        $cat = array(
             array('title' => 'Checklist AM', 'rows' => array(
                 array('page' => 'palletmover',        'name' => 'Pallet Mover & Stacker', 'actions' => $m, 'machine' => true),
                 array('page' => 'forklift',           'name' => 'Forklift',               'actions' => $m, 'machine' => true),
@@ -32,8 +32,15 @@ if (!function_exists('genc_perm_catalog')) {
                 array('page' => 'role_permissions', 'name' => 'Role Permissions', 'actions' => array('list', 'edit'), 'sub' => 'Ubah = boleh mengubah matriks ini'),
                 array('page' => 'app_logs',         'name' => 'App Logs',         'actions' => array('list')),
                 array('page' => 'master_select',    'name' => 'Master Select',    'actions' => array('list', 'view', 'add', 'edit', 'delete'), 'sub' => 'daftar pilihan form lama'),
+                array('page' => 'mesin',            'name' => 'Mesin & Unit',     'actions' => array('list', 'add', 'edit', 'delete'), 'sub' => 'tambah / ubah mesin & unit tanpa coding'),   // [GENC-06OKT26-MESIN]
             )),
         );
+        // [GENC-06OKT26-MESIN] halaman mesin yang dibuat lewat menu Mesin & Unit (route am_*)
+        require_once __DIR__ . '/genc_registry.php';
+        foreach (genc_reg_perm_rows() as $page => $name) {
+            $cat[0]['rows'][] = array('page' => $page, 'name' => $name, 'actions' => $m, 'machine' => true, 'sub' => 'ditambah lewat Mesin & Unit');
+        }
+        return $cat;
     }
 
     /** Judul kolom matriks. */

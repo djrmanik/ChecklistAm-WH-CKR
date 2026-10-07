@@ -44,6 +44,53 @@ if (!function_exists('checklist_row_val')) {
 }
 
 // ---------------------------------------------------------------------------
+// [GENC-06OKT26-INISIAL] Inisial & nama dari menu USERS (tabel users, kolom `inisial`)
+// ---------------------------------------------------------------------------
+if (!function_exists('checklist_users_map')) {
+    /**
+     * Daftar user dari database, dibaca SEKALI per request:
+     *   'ok'      => kolom users.inisial sudah ada (SQL genc_06okt26.sql sudah dijalankan)
+     *   'by_user' => [username huruf kecil => array('nama' => ..., 'inisial' => 'ABC' | '')]
+     *   'by_ini'  => [INISIAL => username]  (inisial yang diisi admin di menu Users)
+     * Gagal / kolom belum ada -> daftar kosong = perilaku lama (daftar resmi di bawah).
+     */
+    function checklist_users_map($reset = false) {
+        static $map = null;
+        if ($reset) { $map = null; return null; }
+        if ($map !== null) { return $map; }
+        $map = array('ok' => false, 'by_user' => array(), 'by_ini' => array());
+        if (!defined('DB_HOST') || !defined('DB_NAME')) { return $map; }
+        try {
+            $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . (defined('DB_PORT') && DB_PORT !== '' ? ';port=' . DB_PORT : '')
+                 . ';charset=' . (defined('DB_CHARSET') && DB_CHARSET !== '' ? DB_CHARSET : 'utf8');
+            $pdo = new PDO($dsn, DB_USERNAME, DB_PASSWORD, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+            $has = count($pdo->query("SHOW COLUMNS FROM `users` LIKE 'inisial'")->fetchAll()) > 0;
+            $rows = $pdo->query("SELECT username, nama" . ($has ? ", inisial" : "") . " FROM `users`")->fetchAll(PDO::FETCH_ASSOC);
+            $map['ok'] = $has;
+            foreach ($rows as $r) {
+                $k = strtolower(trim((string) $r['username']));
+                if ($k === '') { continue; }
+                $ini = $has ? strtoupper(trim((string) $r['inisial'])) : '';
+                $map['by_user'][$k] = array('nama' => trim((string) $r['nama']), 'inisial' => $ini);
+                if ($ini !== '' && !isset($map['by_ini'][$ini])) { $map['by_ini'][$ini] = $k; }
+            }
+        } catch (\Throwable $e) {
+            $map = array('ok' => false, 'by_user' => array(), 'by_ini' => array());
+        }
+        return $map;
+    }
+}
+
+if (!function_exists('checklist_official_initial')) {
+    /** Inisial dari DAFTAR RESMI SPV (10 Sep 2026) saja - '' kalau username tidak ada di daftar. */
+    function checklist_official_initial($username) {
+        $map = checklist_official_initials();
+        $key = strtolower(trim((string) $username));
+        return isset($map[$key]) ? $map[$key] : '';
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Username -> inisial 3 huruf
 // ---------------------------------------------------------------------------
 if (!function_exists('checklist_user_initial')) {
@@ -70,6 +117,50 @@ if (!function_exists('checklist_user_initial')) {
      *   (satu huruf) di baris Paraf Spv. Lihat BLUEPRINT bagian 8.1 no.1.
      */
     function checklist_user_initial($username) {
+        $key = strtolower(trim((string) $username));
+        if ($key === '') {
+            return '';
+        }
+        // [GENC-06OKT26-INISIAL] 1) inisial yang diatur admin di menu Users  2) isian sudah berupa inisial user
+        $um = checklist_users_map();
+        if (isset($um['by_user'][$key]) && $um['by_user'][$key]['inisial'] !== '') {
+            return $um['by_user'][$key]['inisial'];
+        }
+        if (isset($um['by_ini'][strtoupper($key)])) {
+            return strtoupper($key);
+        }
+        // 3) daftar resmi SPV (bawaan, sama dengan sebelum 6 Okt)  4) otomatis dari username
+        return checklist_default_initial($key);
+    }
+}
+
+if (!function_exists('checklist_default_initial')) {
+    /** [GENC-06OKT26-INISIAL] Inisial TANPA pengaturan Users: daftar resmi SPV, kalau tidak ada -> huruf depan tiap bagian username (maks 3). */
+    function checklist_default_initial($username) {
+        $key = strtolower(trim((string) $username));
+        if ($key === '') { return ''; }
+        $map = checklist_official_initials();
+        if (isset($map[$key])) {
+            return $map[$key];
+        }
+        $parts = preg_split('/[.\s_]+/', $key);
+        $initial = '';
+        foreach ($parts as $p) {
+            if ($p !== '') { $initial .= strtoupper($p[0]); }
+        }
+        return $initial !== '' ? substr($initial, 0, 3) : strtoupper(substr($key, 0, 3));
+    }
+}
+
+if (!function_exists('checklist_official_initials')) {
+    /**
+     * DAFTAR RESMI inisial dari supervisor (10 Sep 2026) - cadangan kalau kolom
+     * users.inisial belum ada / kosong untuk user itu, dan untuk ejaan username
+     * lama yang ada di data tapi tidak ada di tabel users (alias di bawah).
+     * [GENC-06OKT26-INISIAL] Mulai 6 Okt inisial diatur di menu Users; SQL
+     * genc_06okt26.sql menyalin daftar ini ke kolom users.inisial sekali.
+     */
+    function checklist_official_initials() {
         static $map = null;
         if ($map === null) {
             $map = array(
@@ -101,19 +192,7 @@ if (!function_exists('checklist_user_initial')) {
                 'ibnu.mubarok'         => 'IBN', // daftar SPV: "mubharok" (pakai h)
             );
         }
-        $key = strtolower(trim((string) $username));
-        if ($key === '') {
-            return '';
-        }
-        if (isset($map[$key])) {
-            return $map[$key];
-        }
-        $parts = preg_split('/[.\s_]+/', $key);
-        $initial = '';
-        foreach ($parts as $p) {
-            if ($p !== '') { $initial .= strtoupper($p[0]); }
-        }
-        return $initial !== '' ? substr($initial, 0, 3) : strtoupper(substr($key, 0, 3));
+        return $map;
     }
 }
 
@@ -181,12 +260,26 @@ if (!function_exists('checklist_display_name')) {
             return $raw; // SAKLAR 7 mati -> apa adanya dari DB
         }
 
-        $init = checklist_user_initial($raw);
-        if (isset($nama[$init])) {
-            return $nama[$init];
+        // [GENC-06OKT26-INISIAL] Nama daftar resmi SPV dicari lewat inisial RESMI orang itu (bukan inisial
+        // yang diatur di Users) -> mengganti inisial di menu Users tidak mengubah nama di report.
+        $um  = checklist_users_map();
+        $key = strtolower($raw);
+        $off = checklist_official_initial($key);
+        if ($off === '' && isset($nama[strtoupper($raw)])) { $off = strtoupper($raw); }   // isian sudah kode resmi ('PAN')
+        $dbu = isset($um['by_user'][$key]) ? $um['by_user'][$key] : null;
+        if ($off === '' && !$dbu && isset($um['by_ini'][strtoupper($raw)])) {            // isian = inisial dari Users
+            $k2  = $um['by_ini'][strtoupper($raw)];
+            $dbu = $um['by_user'][$k2];
+            $off = checklist_official_initial($k2);
+            $raw = $k2;
         }
-
-        // Belum terdaftar: rapikan dari usernamenya sendiri.
+        if ($off !== '' && isset($nama[$off])) {
+            return $nama[$off];
+        }
+        // Belum ada di daftar resmi: nama lengkap dari menu Users (dirapikan), kalau tidak ada -> dari username.
+        if ($dbu && $dbu['nama'] !== '') {
+            $raw = $dbu['nama'];
+        }
         $parts = preg_split('/[.\s_]+/', $raw);
         $out = array();
         foreach ($parts as $p) {

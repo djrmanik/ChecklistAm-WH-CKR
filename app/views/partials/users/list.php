@@ -54,17 +54,18 @@ $ini = function ($nama, $user) {
         <?php else: ?>
         <div class="genc-table-wrap">
         <table class="genc-atable">
-            <thead><tr><th>Nama</th><th>Email</th><th>Role</th><th>Status</th><th class="genc-col-actions"><span class="sr-only">Aksi</span></th></tr></thead>
+            <thead><tr><th>Nama</th><th>Paraf</th><th>Email</th><th>Role</th><th>Status</th><th class="genc-col-actions"><span class="sr-only">Aksi</span></th></tr></thead>
             <tbody>
             <?php foreach ($d['rows'] as $u):
                 $blocked = UsersController::users_is_blocked($u['account_status']);
                 $self = (int) $u['id_user'] === (int) USER_ID; ?>
                 <tr class="<?php echo $blocked ? 'is-muted' : ''; ?>">
                     <td data-label="Nama">
-                        <div class="genc-person"><span class="genc-avatar" aria-hidden="true"><?php echo genc_e($ini($u['nama'], $u['username'])); ?></span>
+                        <div class="genc-person"><span class="genc-avatar" aria-hidden="true"><?php echo genc_e(checklist_user_initial($u['username'])); /* [GENC-06OKT26-INISIAL] avatar = paraf */ ?></span>
                             <div style="min-width:0"><div class="genc-person__name"><?php echo genc_e(ucwords((string) $u['nama'])); ?><?php echo $self ? ' <span class="genc-tag" style="margin-left:4px">Anda</span>' : ''; ?></div>
                                 <span class="genc-cellsub genc-mono"><?php echo genc_e($u['username']); ?></span></div></div>
                     </td>
+                    <td data-label="Paraf"><?php /* [GENC-06OKT26-INISIAL] paraf yang tercetak di report */ $pi = checklist_user_initial($u['username']); $pset = !empty($u['inisial']); ?><span class="genc-tag genc-mono<?php echo $pset ? ' genc-tag--primary' : ''; ?>" title="<?php echo $pset ? 'Diatur di menu Users' : ($d['has_inisial'] ? 'Otomatis (belum diatur)' : 'Otomatis'); ?>"><?php echo genc_e($pi); ?></span><?php echo $pset ? '' : '<span class="genc-cellsub">otomatis</span>'; ?></td>
                     <td data-label="Email"><span class="genc-muted"><?php echo genc_e($u['email']); ?></span></td>
                     <td data-label="Role"><?php if ($u['role_name'] !== null): ?>
                         <a class="genc-tag <?php echo $tone($u['role_name']); ?>" href="<?php echo genc_e(genc_url('users', array('role' => $u['user_role_id']))); ?>" style="text-decoration:none"><?php echo genc_e($u['role_name']); ?></a>

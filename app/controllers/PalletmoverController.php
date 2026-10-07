@@ -173,14 +173,7 @@ class PalletmoverController extends GencChecklistBase{
 	 * 'pages' = route (= nama controller); tiap route punya cetakan Gen C sendiri.
 	 */
 	protected function palletmover_hub_machines(){
-		return array(
-			array('title' => 'Pallet Mover & Stacker', 'pages' => array('palletmover')),
-			array('title' => 'Forklift',               'pages' => array('forklift')),
-			array('title' => 'AGV',                    'pages' => array('agv_table_top_lift', 'counterbalance')),
-			array('title' => 'Mesin Dumping',          'pages' => array('kir3p01dp001', 'kir6p01dp001', 'kir7p01dp001')),
-			array('title' => 'Mesin Geprek',           'pages' => array('mesin_geprek')),
-			array('title' => 'Conveyor',               'pages' => array('conveyor')),
-		);
+		return genc_reg_hub_machines();   // [GENC-06OKT26-MESIN] 6 mesin bawaan (urut sama) + tambahan dari menu Mesin & Unit
 	}
 
 	/**
@@ -197,11 +190,9 @@ class PalletmoverController extends GencChecklistBase{
 			$rows = array();
 			foreach($m['pages'] as $page){
 				if(!ACL::is_allowed($page . '/list')){ continue; }
-				$cls = ucfirst($page) . 'Controller';
 				if($page === 'palletmover'){ $ctl = $this; }
 				else{
-					if(!class_exists($cls)){ continue; }
-					$ctl = new $cls();
+					$ctl = genc_reg_controller($page);   // [GENC-06OKT26-MESIN] juga route am_* (tanpa file controller)
 					if(!($ctl instanceof GencChecklistBase)){ continue; }
 				}
 				foreach($this->palletmover_hub_rows($ctl, $page, $period) as $r){ $rows[] = $r; }
@@ -247,6 +238,7 @@ class PalletmoverController extends GencChecklistBase{
 		$units = $ctl->genc_units();
 		if(empty($units)){
 			$n = $count($ctl->genc_month_rows($period['bulan'], $period['tahun']), $ctl->genc_items());
+			if(genc_reg_is_inactive($page, '') && ($n['menunggu'] + $n['tindakan']) === 0){ return $out; }   // [GENC-06OKT26-MESIN] nonaktif & beres: tidak tampil
 			$out[] = array(
 				'label' => isset($tab_label['']) ? $tab_label[''] : $conf['title'],
 				'group' => '', 'sub' => (isset($tab_sub['']) ? $tab_sub[''] : ''),
@@ -260,6 +252,8 @@ class PalletmoverController extends GencChecklistBase{
 			$ctl->genc_set_unit_ctx($slug);                     // profil unit ini (forklift electric/diesel, stacker)
 			$all = $ctl->genc_month_rows($period['bulan'], $period['tahun']);
 			$n = $count($ctl->genc_filter_unit($all, $slug), $ctl->genc_items());
+			if($other === null){ $other = $count($ctl->genc_filter_unit($all, self::UNIT_OTHER), $ctl->genc_items()); }
+			if((!empty($u['inactive']) || genc_reg_is_inactive($page, '')) && ($n['menunggu'] + $n['tindakan']) === 0){ continue; }   // [GENC-06OKT26-MESIN] nonaktif & beres: tidak tampil
 			$out[] = array(
 				'label' => isset($tab_label[$slug]) ? $tab_label[$slug] : $u['label'],
 				'group' => isset($tab_group[$slug]) ? $tab_group[$slug] : '',
@@ -267,7 +261,6 @@ class PalletmoverController extends GencChecklistBase{
 				'menunggu' => $n['menunggu'], 'tindakan' => $n['tindakan'],
 				'page' => $page, 'unit' => $slug,
 			);
-			if($other === null){ $other = $count($ctl->genc_filter_unit($all, self::UNIT_OTHER), $ctl->genc_items()); }
 		}
 		// record lama dengan nomor unit yang tidak dikenal -> baris sendiri, hanya kalau ada isinya
 		if($other !== null && ($other['menunggu'] + $other['tindakan']) > 0){
