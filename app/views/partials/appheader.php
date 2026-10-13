@@ -66,6 +66,13 @@ $gs_logged = (user_login_status() == true);
     foreach (genc_reg_menu_match() as $gs_mp => $gs_more) {
         $gs_match[$gs_mp] = array_merge(isset($gs_match[$gs_mp]) ? $gs_match[$gs_mp] : array($gs_mp), $gs_more);
     }
+    // [GENC-08OKT26-MESIN] 6 mesin awal: ikon dari menu Mesin & Unit, mesin nonaktif tidak tampil,
+    // menu mengarah ke halaman (unit) AKTIF pertama yang boleh dibuka role ini
+    $gs_mesin = genc_reg_sidebar();
+    foreach ($gs_mesin as $gs_mp => $gs_mf) {
+        $gs_icons[$gs_mp] = $gs_mf['icon'];
+        $gs_match[$gs_mp] = array_values(array_unique(array_merge(isset($gs_match[$gs_mp]) ? $gs_match[$gs_mp] : array($gs_mp), $gs_mf['pages'])));
+    }
     $gs_section_of = array('home' => 'main', 'palletmover/approval' => 'pantau', 'palletmover/uncompleted' => 'pantau',
         'users' => 'admin', 'master_select' => 'admin');
     $gs_sec_label  = array('main' => '', 'am' => 'Autonomous Maintenance', 'pantau' => 'Pantau', 'admin' => 'Admin & sistem', 'lain' => 'Lainnya');
@@ -99,10 +106,21 @@ $gs_logged = (user_login_status() == true);
     <?php foreach ($gs_sections as $key => $items):
         $shown = array();
         foreach ($items as $it) {
+            $p0 = trim($it['path'], '/');
+            if (isset($gs_mesin[$p0])) {   // [GENC-08OKT26-MESIN]
+                if (!$gs_mesin[$p0]['aktif']) { continue; }
+                $gs_to = '';
+                foreach ($gs_mesin[$p0]['pages'] as $alt) { if (!isset($gs_mesin[$p0]['off'][$alt]) && ACL::is_allowed($alt)) { $gs_to = $alt; break; } }
+                if ($gs_to === '') { foreach ($gs_mesin[$p0]['pages'] as $alt) { if (ACL::is_allowed($alt)) { $gs_to = $alt; break; } } }
+                if ($gs_to === '') { continue; }
+                if ($gs_to !== $p0) { $it['href'] = $gs_to; }
+                $it['label'] = $gs_mesin[$p0]['title'];   // [GENC-08OKT26-P3] nama mesin dari menu Mesin & Unit (awal = sama dengan Menu.php)
+                $shown[] = $it;
+                continue;
+            }
             if (ACL::is_allowed($it['path'])) { $shown[] = $it; continue; }
             // [GENC-25SEP26-AUDIT] menu ber-tab (AGV, Dumping): tampil kalau role boleh membuka SALAH SATU tabnya,
             // tautan ke tab pertama yang boleh (dulu: role yang cuma punya Counterbalance / KIR6 tidak melihat menu)
-            $p0 = trim($it['path'], '/');
             if (isset($gs_match[$p0]) && $p0 !== 'home') {
                 foreach ($gs_match[$p0] as $alt) { if ($alt !== $p0 && ACL::is_allowed($alt)) { $it['href'] = $alt; $shown[] = $it; break; } }
             }

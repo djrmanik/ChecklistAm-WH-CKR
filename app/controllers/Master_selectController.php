@@ -1,6 +1,9 @@
 <?php
 /**
  * MASTER SELECT - Generasi C                             [GENC-25SEP26-AUDIT]
+ * [GENC-08OKT26-P3] Sekarang juga "Pilihan hasil cek" untuk SEMUA mesin: label tombol Baik / Tidak baik /
+ * Perawatan bisa diganti (tabel genc_pilihan). Kode yang disimpan ke database & dicetak di report TETAP
+ * OK / NOK / PR -> data lama, penilaian temuan & report tidak berubah. Simpan: POST master_select/edit/pilihan.
  * Daftar pilihan dropdown form phpRAD LAMA (form Forklift Gen A). Form Gen C memakai tombol
  * Baik / Tidak baik / Perawatan, jadi daftar ini sekarang hanya arsip + bahan membaca isian lama.
  * Tetap bisa ditambah / diubah / dihapus (route & hak akses sama: master_select/list|add|edit|delete).
@@ -8,6 +11,8 @@
  * @category  Controller
  */
 require_once __DIR__ . '/../views/partials/_shared/genc_log.php';
+require_once __DIR__ . '/../views/partials/_shared/genc_registry.php';   // [GENC-08OKT26-P3] genc_reg_ensure_tables / genc_reg_clean
+require_once __DIR__ . '/../views/partials/_shared/genc_helpers.php';
 
 class Master_selectController extends SecureController{
 	function __construct(){
@@ -19,6 +24,8 @@ class Master_selectController extends SecureController{
 		$db = $this->GetModel();
 		$rows = $db->rawQuery("SELECT id, value, label FROM master_select ORDER BY id ASC LIMIT 1000");
 		$data = array('rows' => is_array($rows) ? $rows : array(), 'form' => $form,
+			'pilihan' => genc_pilihan_labels(true), 'pilihan_awal' => genc_pilihan_default(),
+			'pil_old' => isset($form['pil_old']) ? $form['pil_old'] : null, 'pil_err' => isset($form['pil_err']) ? $form['pil_err'] : array(),
 			'can' => array('add' => ACL::is_allowed('master_select/add'), 'edit' => ACL::is_allowed('master_select/edit'), 'delete' => ACL::is_allowed('master_select/delete')));
 		$this->view->page_title = "Master Select";
 		return $this->render_view("master_select/list.php", $data);
@@ -58,6 +65,7 @@ class Master_selectController extends SecureController{
 
 	function edit($rec_id = null, $formdata = null){
 		if(!is_post_request() || !is_array($formdata)){ $formdata = null; }   // [GENC-25SEP26-AUDIT] segmen URL ekstra (mis. .../edit/5/x) dulu dianggap isian form
+		if($rec_id === 'pilihan'){ return $this->ms_save_pilihan($formdata); }   // [GENC-08OKT26-P3]
 		$db = $this->GetModel();
 		$db->where("id", (int) $rec_id);
 		$row = $db->getOne("master_select", array("id", "value", "label"));
@@ -90,6 +98,41 @@ class Master_selectController extends SecureController{
 				$this->ms_toast('Pilihan dihapus.');
 			}
 		}
+		return $this->redirect("master_select");
+	}
+
+	/** [GENC-08OKT26-P3] Simpan label tombol hasil cek (kosong = label awal). */
+	protected function ms_save_pilihan($formdata){
+		if(!$formdata){ return $this->redirect("master_select"); }
+		if($e = genc_reg_ensure_tables()){ $this->ms_toast('Tabel belum bisa dibuat: ' . $e); return $this->redirect("master_select"); }
+		$awal = genc_pilihan_default();
+		$cur = genc_pilihan_labels(true);
+		$in = isset($formdata['label']) && is_array($formdata['label']) ? $formdata['label'] : array();
+		$new = array(); $err = array(); $old = array();
+		foreach($awal as $k => $a){
+			$v = genc_reg_clean(isset($in[$k]) ? $in[$k] : '', 20);
+			$old[$k] = $v;
+			$new[$k] = $v === '' ? $a : $v;
+		}
+		$seen = array();
+		foreach($new as $k => $v){
+			$n = strtolower($v);
+			if(isset($seen[$n])){ $err[$k] = 'Label sama dengan pilihan ' . $seen[$n] . ' - operator tidak bisa membedakan.'; }
+			$seen[$n] = $k;
+		}
+		if($err){ return $this->ms_render(array('mode' => '', 'pil_old' => $old, 'pil_err' => $err)); }
+		$diff = array();
+		foreach($new as $k => $v){ if($v !== $cur[$k]){ $diff[$k] = $cur[$k] . ' -> ' . $v; } }
+		if(!$diff){ $this->ms_toast('Tidak ada yang berubah.'); return $this->redirect("master_select"); }
+		$pdo = genc_reg_db();
+		foreach($new as $k => $v){
+			if($v === $awal[$k]){ $pdo->prepare("DELETE FROM genc_pilihan WHERE kode = ?")->execute(array($k)); }
+			else{ $pdo->prepare("REPLACE INTO genc_pilihan (kode, label, updated_at, updated_by) VALUES (?,?,?,?)")->execute(array($k, $v, datetime_now(), USER_NAME)); }
+		}
+		genc_pilihan_labels(true);
+		$note = array(); foreach($diff as $k => $v){ $note[] = $k . ': ' . $v; }
+		genc_app_log('master_select.pilihan', 'genc_pilihan', 0, 'Ubah label tombol hasil cek - ' . implode('; ', $note), $diff);
+		$this->ms_toast('Label tombol hasil cek tersimpan - langsung dipakai di form isi, daftar & detail semua mesin. Kode di database & report tetap OK / NOK / PR.');
 		return $this->redirect("master_select");
 	}
 

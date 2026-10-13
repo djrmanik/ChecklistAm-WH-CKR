@@ -64,11 +64,10 @@ $total_rows = 0;
             <thead><tr>
                 <th>Halaman</th>
                 <?php foreach ($cols as $k => $c): ?><th><?php echo genc_e($c[0]); ?><?php echo $c[1] !== '' ? '<small>' . genc_e($c[1]) . '</small>' : ''; ?></th><?php endforeach; ?>
-                <th style="text-align:left">Aksi lain<small>bawaan phpRAD / halaman lama</small></th>
             </tr></thead>
             <tbody>
             <?php foreach ($m['sections'] as $sec): ?>
-                <tr class="genc-perm__sec"><td colspan="<?php echo count($cols) + 2; ?>"><?php echo genc_e($sec['title']); ?></td></tr>
+                <tr class="genc-perm__sec"><td colspan="<?php echo count($cols) + 1; ?>"><?php echo genc_e($sec['title']); ?></td></tr>
                 <?php foreach ($sec['rows'] as $row): $total_rows++; ?>
                 <tr data-rp-row="<?php echo !empty($row['machine']) ? 'machine' : ''; ?>">
                     <td class="genc-perm__page"><b<?php echo !empty($sec['other']) ? ' class="genc-mono"' : ''; ?>><?php echo genc_e($row['name']); ?></b><?php if (!empty($row['sub'])): ?><small><?php echo genc_e($row['sub']); ?></small><?php endif; ?></td>
@@ -78,17 +77,15 @@ $total_rows = 0;
                     <?php else: foreach ($cols as $k => $c): ?>
                         <td><?php echo in_array($k, $row['actions'], true) ? $tick($row['page'] . '/' . $k, $row['name'] . ' - ' . $c[0]) : '<span class="genc-perm__na" aria-hidden="true">&ndash;</span>'; ?></td>
                     <?php endforeach; endif; ?>
-                    <td style="text-align:left"><div class="genc-perm__extra">
-                        <?php foreach ($row['extras'] as $a): $pa = $row['page'] . '/' . $a; $on = isset($m['have'][$pa]); $lock = $d['is_own'] && in_array($pa, $d['locked'], true); ?>
-                            <label class="genc-chipbox"><input type="checkbox" name="p[]" value="<?php echo genc_e($pa); ?>"<?php echo $on ? ' checked' : ''; ?><?php echo $ro || $lock ? ' disabled' : ''; ?> data-rp="<?php echo genc_e($pa); ?>" data-rp-init="<?php echo $on ? '1' : '0'; ?>"><?php echo genc_e($a); ?></label>
-                        <?php endforeach; ?>
-                    </div></td>
                 </tr>
                 <?php endforeach; ?>
             <?php endforeach; ?>
             </tbody>
         </table>
         </div>
+        <?php if (!empty($m['hidden'])): /* [GENC-08OKT26-P3] */ ?>
+        <p class="genc-small genc-muted" style="padding:10px 18px 0;margin:0"><i class="fa fa-archive"></i> <?php echo (int) $m['hidden']; ?> hak akses lama bawaan phpRAD (halaman / aksi yang tidak dipakai aplikasi sekarang) disembunyikan &mdash; tetap tersimpan dan tidak tersentuh saat menyimpan.</p>
+        <?php endif; ?>
         <?php if (!$ro): ?>
         <div class="genc-perm-bar">
             <span class="genc-perm-bar__txt" data-rp-status><i class="fa fa-info-circle"></i> Mesin: mencentang Detail/Isi/Ubah/Hapus/Approve otomatis ikut <b>Lihat</b> (tanpa itu menu mesin tidak muncul).</span>

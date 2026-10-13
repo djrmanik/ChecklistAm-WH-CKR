@@ -1,0 +1,8 @@
+# [GENC-13OKT26] cadangan hapus permanen: tidak boleh dibuka lewat URL (unduh lewat menu Mesin & Unit)
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

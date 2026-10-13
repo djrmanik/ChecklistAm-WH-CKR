@@ -75,6 +75,10 @@ if (!function_exists('checklist_load_machine')) {
             $conf = genc_reg_apply_override(basename($profile), $conf);
         }
         $conf = array_merge($conf, (array) $overrides);
+        // [GENC-08OKT26-P3] nama / area / pelaksanaan mesin awal yang diubah lewat Mesin & Unit (tanpa perubahan: $conf tetap)
+        if (function_exists('genc_reg_final_conf')) {
+            $conf = genc_reg_final_conf(basename($profile), $conf);
+        }
 
         $defaults = array(
             'key'            => $profile,
@@ -135,6 +139,7 @@ if (!function_exists('checklist_machine_units')) {
             $label = isset($u['label']) ? trim((string) $u['label']) : '';
             if ($label === '') { continue; }
             $slug  = strtolower(trim(preg_replace('/[^A-Za-z0-9]+/', '-', $label), '-'));
+            if (!empty($u['slug'])) { $slug = (string) $u['slug']; }   // [GENC-08OKT26-MESIN] unit awal yang diganti nama: URL tetap
             $norms = array();
             $alias = isset($u['alias']) ? (array) $u['alias'] : array();
             $alias[] = $label; // label sendiri selalu ikut jadi alias
@@ -144,6 +149,7 @@ if (!function_exists('checklist_machine_units')) {
             }
             $out[$slug] = array('label' => $label, 'norms' => array_keys($norms));
             if (!empty($u['inactive'])) { $out[$slug]['inactive'] = true; }   // [GENC-06OKT26-MESIN] unit nonaktif (data tetap terbaca)
+            if (!empty($u['archived'])) { $out[$slug]['archived'] = true; }   // [GENC-08OKT26-P3] unit di arsip
         }
         return $out;
     }
@@ -312,6 +318,10 @@ if (!function_exists('checklist_collect_report_data')) {
             'approver'       => $approver,
             'na_days'        => checklist_na_days($bulan, $tahun, $day_count, $filled_days),
             'row_count'      => count((array) $rows),
+            // [GENC-07OKT26-FOTO] gambar bagian mesin: panel / kolase foto item (checklist_report_plan.php)
+            'gambar_cfg'     => isset($conf['gambar_cfg']) ? $conf['gambar_cfg'] : array(),
+            'profile_key'    => (string) $conf['key'],
+            'format'         => $format,
         );
     }
 }

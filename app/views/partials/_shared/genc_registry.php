@@ -5,7 +5,8 @@
  *
  *  Sumber data menu "Mesin & Unit" (MesinController). Dua tabel kecil:
  *    genc_mesin  jenis mesin BARU (folder baru di sidebar): nama, area, ikon, item checklist (JSON)
- *    genc_unit   unit BARU (tab baru) + catatan untuk unit BAWAAN (nonaktif / nama tab)
+ *    genc_unit   unit BARU (tab baru) + catatan untuk unit awal (nonaktif / nama unit)
+ *    genc_folder [GENC-08OKT26-MESIN] status mesin awal (aktif / ikon) - mesin awal = 6 mesin di kode
  *  Tabel dibuat oleh database/genc_06okt26.sql (atau otomatis saat menu
  *  Mesin & Unit pertama kali dibuka). Selama tabel belum ada / kosong, SEMUA
  *  fungsi di sini mengembalikan "tidak ada tambahan" -> app sama persis dengan
@@ -34,6 +35,19 @@ if (!function_exists('genc_reg_db')) {
     define('GENC_REG_PREFIX', 'am_');
     /** Batas item per jenis mesin baru. */
     define('GENC_REG_MAX_ITEMS', 60);
+    /** [GENC-07OKT26-FOTO] Batas foto per item checklist & foto tambahan per gambar bagian mesin. */
+    define('GENC_REG_MAX_FOTO', 6);
+    define('GENC_REG_MAX_EXTRA', 12);
+    /** [GENC-08OKT26-MESIN] Label "BARU" di menu Mesin & Unit tampil selama N hari sejak dibuat. */
+    define('GENC_REG_NEW_DAYS', 3);
+    /**
+     * [GENC-13OKT26] Nilai kolom `arsip`: 0 = biasa, 1 = di Arsip (bisa dipulihkan), 2 = DIHAPUS PERMANEN.
+     * 2 hanya dipakai untuk mesin & unit AWAL (dari kode): halamannya tetap ada di kode & tabel aslinya tetap,
+     * jadi catatannya disimpan sebagai "nisan" supaya tidak pernah tampil lagi. Mesin & unit buatan menu yang
+     * dihapus permanen benar-benar hilang (baris registry, tabel / data, foto, hak akses).
+     * Semua pemeriksaan lama `!empty(arsip)` tetap benar (2 = ikut tersembunyi seperti arsip).
+     */
+    define('GENC_REG_HAPUS', 2);
 
     /** Koneksi PDO sendiri (dibaca sebelum controller ada, mis. di Router). null kalau DB tidak tersedia. */
     function genc_reg_db() {
@@ -96,6 +110,47 @@ if (!function_exists('genc_reg_db')) {
                 `kunci_at` DATETIME NULL, `kunci_by` VARCHAR(100) NULL,
                 PRIMARY KEY (`profil`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            // [GENC-08OKT26-MESIN] status mesin awal (Pallet Mover ... Conveyor): aktif / nonaktif + ikon sidebar
+            "CREATE TABLE IF NOT EXISTS `genc_folder` (
+                `folder` VARCHAR(64) NOT NULL,
+                `ikon` VARCHAR(40) NULL,
+                `aktif` TINYINT(1) NOT NULL DEFAULT 1,
+                `updated_at` DATETIME NULL, `updated_by` VARCHAR(100) NULL,
+                PRIMARY KEY (`folder`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            // [GENC-08OKT26-P3] riwayat versi pengaturan tiap mesin (Mesin & Unit) - dipulihkan kapan saja
+            "CREATE TABLE IF NOT EXISTS `genc_versi` (
+                `id` INT NOT NULL AUTO_INCREMENT,
+                `folder` VARCHAR(64) NOT NULL,
+                `versi` INT NOT NULL DEFAULT 1,
+                `ringkasan` VARCHAR(255) NOT NULL DEFAULT '',
+                `data` MEDIUMTEXT NULL,
+                `created_at` DATETIME NULL, `created_by` VARCHAR(100) NULL,
+                PRIMARY KEY (`id`), KEY `ix_genc_versi_folder` (`folder`, `versi`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            // [GENC-08OKT26-P3] label tombol hasil cek (kode OK/NOK/PR di database & report TETAP)
+            "CREATE TABLE IF NOT EXISTS `genc_pilihan` (
+                `kode` VARCHAR(10) NOT NULL,
+                `label` VARCHAR(40) NOT NULL DEFAULT '',
+                `updated_at` DATETIME NULL, `updated_by` VARCHAR(100) NULL,
+                PRIMARY KEY (`kode`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        );
+    }
+
+    /** [GENC-08OKT26-P3] Kolom yang ditambah ke tabel registry yang sudah ada (install lama): tabel => [kolom => definisi]. */
+    function genc_reg_schema_columns() {
+        return array(
+            'genc_folder' => array(
+                'nama'        => "VARCHAR(100) NULL",
+                'area'        => "VARCHAR(100) NULL",
+                'pelaksanaan' => "VARCHAR(150) NULL",
+                'arsip'       => "TINYINT(1) NOT NULL DEFAULT 0",
+            ),
+            'genc_mesin' => array('arsip' => "TINYINT(1) NOT NULL DEFAULT 0"),
+            'genc_unit'  => array('arsip' => "TINYINT(1) NOT NULL DEFAULT 0"),
+            // [GENC-13OKT26] penunjuk "versi sekarang" (Kembalikan = pindah penunjuk, bukan versi baru)
+            'genc_versi' => array('sekarang' => "TINYINT(1) NOT NULL DEFAULT 0"),
         );
     }
 
@@ -105,6 +160,13 @@ if (!function_exists('genc_reg_db')) {
         if (!$pdo) { return 'Koneksi database gagal.'; }
         try {
             foreach (genc_reg_schema_sql() as $sql) { $pdo->exec($sql); }
+            foreach (genc_reg_schema_columns() as $t => $cols) {
+                $have = array();
+                foreach ($pdo->query("SHOW COLUMNS FROM `$t`")->fetchAll() as $c) { $have[strtolower($c['Field'])] = true; }
+                foreach ($cols as $c => $def) {
+                    if (!isset($have[$c])) { $pdo->exec("ALTER TABLE `$t` ADD COLUMN `$c` $def"); }
+                }
+            }
         } catch (\Throwable $e) {
             return $e->getMessage();
         }
@@ -120,9 +182,14 @@ if (!function_exists('genc_reg_db')) {
         static $data = null;
         if ($reset) { $data = null; }
         if ($data !== null) { return $data; }
-        $data = array('ok' => false, 'mesin' => array(), 'unit' => array(), 'profil' => array(), 'profil_ok' => false);
+        $data = array('ok' => false, 'mesin' => array(), 'unit' => array(), 'profil' => array(), 'profil_ok' => false, 'folder' => array(), 'folder_ok' => false);
         $pdo = genc_reg_db();
         if (!$pdo) { return $data; }
+        // [GENC-08OKT26-MESIN] tabel ke-4 juga dibaca terpisah (install lama tanpa genc_folder tetap jalan)
+        try {
+            foreach ($pdo->query("SELECT * FROM `genc_folder`")->fetchAll() as $r) { $data['folder'][$r['folder']] = $r; }
+            $data['folder_ok'] = true;
+        } catch (\Throwable $e) { $data['folder'] = array(); }
         // [GENC-06OKT26-ISI] tabel ke-3 dibaca terpisah: install yang belum punya genc_profil tetap jalan normal
         try {
             foreach ($pdo->query("SELECT * FROM `genc_profil`")->fetchAll() as $r) { $data['profil'][$r['profil']] = $r; }
@@ -133,15 +200,17 @@ if (!function_exists('genc_reg_db')) {
             $u = $pdo->query("SELECT * FROM `genc_unit` ORDER BY `urut`, `id`")->fetchAll();
             $data['ok'] = true;
             foreach ($m as $r) {
+                $r['arsip'] = isset($r['arsip']) ? (int) $r['arsip'] : 0;   // [GENC-08OKT26-P3]
                 $r['items_arr'] = genc_reg_items_decode($r['items']);
                 $data['mesin'][$r['page']] = $r;
             }
             foreach ($u as $r) {
+                $r['arsip'] = isset($r['arsip']) ? (int) $r['arsip'] : 0;   // [GENC-08OKT26-P3]
                 $r['alias_arr'] = genc_reg_json_list($r['alias']);
                 $data['unit'][(int) $r['id']] = $r;
             }
         } catch (\Throwable $e) {
-            $data = array('ok' => false, 'mesin' => array(), 'unit' => array(), 'profil' => $data['profil'], 'profil_ok' => $data['profil_ok']);
+            $data = array('ok' => false, 'mesin' => array(), 'unit' => array(), 'profil' => $data['profil'], 'profil_ok' => $data['profil_ok'], 'folder' => $data['folder'], 'folder_ok' => $data['folder_ok']);
         }
         return $data;
     }
@@ -169,6 +238,7 @@ if (!function_exists('genc_reg_db')) {
             if (!is_array($raw) || empty($raw[$k]) || !is_array($raw[$k])) { continue; }
             foreach ($raw[$k] as $it) {
                 if (!is_array($it) || empty($it['db']) || !preg_match('/^item_\d{2,3}$/', (string) $it['db'])) { continue; }
+                $fotos = genc_reg_fotos_of($it);   // [GENC-07OKT26-FOTO] banyak foto per item ('foto' = foto pertama)
                 $out[$k][] = array(
                     'db'      => (string) $it['db'],
                     'part'    => isset($it['part']) ? (string) $it['part'] : '',
@@ -176,11 +246,35 @@ if (!function_exists('genc_reg_db')) {
                     'metode'  => isset($it['metode']) ? (string) $it['metode'] : '',
                     'alat'    => isset($it['alat']) ? (string) $it['alat'] : '',
                     'durasi'  => isset($it['durasi']) ? (string) $it['durasi'] : '',
-                    'foto'    => isset($it['foto']) ? (string) $it['foto'] : '',
+                    'foto'    => $fotos ? $fotos[0] : '',
+                    'fotos'   => $fotos,
                     'aktif'   => !isset($it['aktif']) || !empty($it['aktif']),
                 );
             }
         }
+        return $out;
+    }
+
+    /**
+     * [GENC-07OKT26-FOTO] Daftar foto sebuah item (urut, foto pertama = foto utama).
+     * Bentuk lama ('foto' saja) tetap dibaca. Path relatif terhadap ROOT, tanpa '..'.
+     */
+    function genc_reg_fotos_of($it) {
+        $out = array();
+        $src = (is_array($it) && isset($it['fotos']) && is_array($it['fotos'])) ? $it['fotos'] : array();
+        if (!$src && is_array($it) && isset($it['foto']) && (string) $it['foto'] !== '') { $src = array($it['foto']); }
+        foreach ($src as $p) {
+            $p = str_replace('\\', '/', trim((string) $p));
+            if ($p === '' || strpos($p, '..') !== false || in_array($p, $out, true)) { continue; }
+            $out[] = $p;
+        }
+        return array_slice($out, 0, GENC_REG_MAX_FOTO);
+    }
+
+    /** Foto item yang filenya ada (untuk form isi & report). */
+    function genc_reg_fotos_existing($it) {
+        $out = array();
+        foreach (genc_reg_fotos_of($it) as $p) { if (is_file(ROOT . $p)) { $out[] = $p; } }
         return $out;
     }
 
@@ -196,13 +290,39 @@ if (!function_exists('genc_reg_db')) {
     // ------------------------------------------------------------------
 
     function genc_reg_builtin_folders() {
+        // [GENC-08OKT26-MESIN] ikon & status aktif dari genc_folder ditimpakan; 'icon_awal' = ikon di kode (untuk "kembalikan")
+        $out = genc_reg_builtin_folders_def();
+        $st = genc_reg_data()['folder'];
+        foreach ($out as $k => $f) {
+            $out[$k]['icon_awal'] = $f['icon'];
+            $out[$k]['title_awal'] = $f['title'];
+            $out[$k]['aktif'] = true;
+            $out[$k]['arsip'] = false;
+            $out[$k]['hapus'] = false;        // [GENC-13OKT26] dihapus permanen (arsip = 2): hilang dari aplikasi, tabel asli tetap
+            $out[$k]['area'] = null;          // [GENC-08OKT26-P3] null = ikut profil / controller (awal)
+            $out[$k]['pelaksanaan'] = null;
+            if (isset($st[$k])) {
+                if ((string) $st[$k]['ikon'] !== '' && in_array($st[$k]['ikon'], genc_reg_icons(), true)) { $out[$k]['icon'] = $st[$k]['ikon']; }
+                $out[$k]['aktif'] = (int) $st[$k]['aktif'] !== 0;
+                $out[$k]['arsip'] = !empty($st[$k]['arsip']);
+                $out[$k]['hapus'] = (int) $st[$k]['arsip'] === GENC_REG_HAPUS;
+                if (isset($st[$k]['nama']) && trim((string) $st[$k]['nama']) !== '') { $out[$k]['title'] = trim($st[$k]['nama']); }
+                if (isset($st[$k]['area']) && $st[$k]['area'] !== null) { $out[$k]['area'] = (string) $st[$k]['area']; }
+                if (isset($st[$k]['pelaksanaan']) && $st[$k]['pelaksanaan'] !== null) { $out[$k]['pelaksanaan'] = (string) $st[$k]['pelaksanaan']; }
+            }
+        }
+        return $out;
+    }
+
+    /** Definisi 6 mesin awal (urut = menu sidebar), tanpa status dari DB. */
+    function genc_reg_builtin_folders_def() {
         return array(
             'palletmover' => array('title' => 'Pallet Mover & Stacker', 'icon' => 'fa-th-large', 'mode' => 'units', 'menu' => 'palletmover',
                 'types' => array(
                     array('profile' => 'palletmover',   'page' => 'palletmover', 'label' => 'Pallet Mover'),
                     array('profile' => 'palletstacker', 'page' => 'palletmover', 'label' => 'Pallet Stacker'),
                 ),
-                'kunci_awal' => false, 'unit_hint' => 'Contoh: Pallet Mover 5', 'tab_note' => 'Label "Pallet Mover N" tampil sebagai "PM N" di tab.'),
+                'kunci_awal' => false, 'unit_hint' => 'Contoh: Pallet Mover 5', 'tab_note' => ''),
             'forklift' => array('title' => 'Forklift', 'icon' => 'fa-truck', 'mode' => 'units', 'menu' => 'forklift',
                 'types' => array(
                     array('profile' => 'forklift_electric', 'page' => 'forklift', 'label' => 'Electric'),
@@ -214,7 +334,7 @@ if (!function_exists('genc_reg_db')) {
                     array('profile' => 'agv_table_top_lift', 'page' => 'agv_table_top_lift', 'label' => 'Table Top Lift'),
                     array('profile' => 'counterbalance',     'page' => 'counterbalance',     'label' => 'Counterbalance'),
                 ),
-                'kunci_awal' => false, 'unit_hint' => 'Contoh: AGV TTL 11 atau AGV CB 4', 'tab_note' => 'Awalan "AGV " tidak ditulis di tab.'),
+                'kunci_awal' => false, 'unit_hint' => 'Contoh: AGV TTL 11 atau AGV CB 4', 'tab_note' => ''),
             'dumping' => array('title' => 'Mesin Dumping', 'icon' => 'fa-download', 'mode' => 'tables', 'menu' => 'kir3p01dp001',
                 'profile' => 'dumping', 'source' => 'kir3p01dp001', 'prefix' => 'Mesin Dumping',
                 'pages' => array(
@@ -222,15 +342,15 @@ if (!function_exists('genc_reg_db')) {
                     'kir6p01dp001' => array('label' => 'KIR6', 'sub' => 'KIR6P01DP001'),
                     'kir7p01dp001' => array('label' => 'KIR7', 'sub' => 'KIR7P01DP001'),
                 ),
-                'kunci_awal' => false, 'unit_hint' => 'Nama tab, contoh: KIR8', 'kode_hint' => 'Kode mesin di report, contoh: KIR8P01DP001'),
+                'kunci_awal' => false, 'unit_hint' => 'Contoh: KIR8', 'kode_hint' => 'Kode mesin di report, contoh: KIR8P01DP001'),
             'geprek' => array('title' => 'Mesin Geprek', 'icon' => 'fa-compress', 'mode' => 'tables', 'menu' => 'mesin_geprek',
                 'profile' => 'mesin_geprek', 'source' => 'mesin_geprek', 'prefix' => '',
                 'pages' => array('mesin_geprek' => array('label' => 'Geprek 1', 'sub' => '')),
-                'kunci_awal' => false, 'unit_hint' => 'Nama tab, contoh: Geprek 2', 'kode_hint' => 'Kode / nama mesin di report (boleh kosong)'),
+                'kunci_awal' => false, 'unit_hint' => 'Contoh: Geprek 2', 'kode_hint' => 'Kode / nama mesin di report (boleh kosong)'),
             'conveyor' => array('title' => 'Conveyor', 'icon' => 'fa-exchange', 'mode' => 'tables', 'menu' => 'conveyor',
                 'profile' => 'conveyor', 'source' => 'conveyor', 'prefix' => '',
                 'pages' => array('conveyor' => array('label' => 'Conveyor 1', 'sub' => '')),
-                'kunci_awal' => false, 'unit_hint' => 'Nama tab, contoh: Conveyor 2', 'kode_hint' => 'Kode / nama mesin di report (boleh kosong)'),
+                'kunci_awal' => false, 'unit_hint' => 'Contoh: Conveyor 2', 'kode_hint' => 'Kode / nama mesin di report (boleh kosong)'),
         );
     }
 
@@ -317,7 +437,19 @@ if (!function_exists('genc_reg_db')) {
         foreach ((array) $units as $u) {
             $slug = genc_reg_unit_slug(isset($u['label']) ? $u['label'] : '');
             foreach ($d['unit'] as $r) {
-                if ((int) $r['builtin'] === 1 && $r['profile'] === $profile && $r['slug'] === $slug && (int) $r['aktif'] === 0) { $u['inactive'] = true; }
+                if ((int) $r['builtin'] !== 1 || $r['profile'] !== $profile || $r['slug'] !== $slug) { continue; }
+                if ((int) $r['aktif'] === 0) { $u['inactive'] = true; }
+                if (!empty($r['arsip'])) { $u['archived'] = true; }   // [GENC-08OKT26-P3]
+                if ((int) $r['arsip'] === GENC_REG_HAPUS) { $u['deleted'] = true; }   // [GENC-13OKT26] dihapus permanen
+                if ($r['alias_arr']) { $u['alias'] = array_values(array_unique(array_merge(isset($u['alias']) ? (array) $u['alias'] : array(), $r['alias_arr']))); }
+                // [GENC-08OKT26-MESIN] unit awal diganti nama: slug (URL ?unit=) tetap, nama awal jadi alias (data lama tetap ikut)
+                $nl = trim((string) $r['label']);
+                if ($nl !== '' && checklist_norm_unit($nl) !== checklist_norm_unit($u['label'])) {
+                    $u['alias'] = array_values(array_unique(array_merge(isset($u['alias']) ? (array) $u['alias'] : array(), array($u['label']))));
+                    $u['label_awal'] = $u['label'];
+                    $u['label'] = $nl;
+                    $u['slug'] = $slug;
+                }
             }
             $out[] = $u;
         }
@@ -327,6 +459,7 @@ if (!function_exists('genc_reg_db')) {
             if (!isset($bf[$r['folder']]) || $bf[$r['folder']]['mode'] !== 'units') { continue; }   // jenis baru: genc_reg_profile(); 1-tabel-per-unit: tab sendiri
             $u = array('label' => $r['label'], 'alias' => $r['alias_arr'], 'reg_id' => (int) $r['id']);
             if ((int) $r['aktif'] === 0) { $u['inactive'] = true; }
+            if (!empty($r['arsip'])) { $u['archived'] = true; }
             $out[] = $u;
         }
         return $out;
@@ -346,17 +479,20 @@ if (!function_exists('genc_reg_db')) {
                 if (!$it['aktif']) { continue; }
                 $no++;
                 $row = array('no' => $no, 'part' => $it['part'], 'alat' => $it['alat'], 'metode' => $it['metode'], 'standar' => $it['standar'], 'durasi' => $it['durasi'], 'db' => $it['db']);
-                if ($it['foto'] !== '' && is_file(ROOT . $it['foto'])) { $row['foto'] = $it['foto']; }
+                $fotos = genc_reg_fotos_existing($it);   // [GENC-07OKT26-FOTO]
+                if ($fotos) { $row['foto'] = $fotos[0]; $row['fotos'] = $fotos; }
                 $items[] = $row;
             }
             $slots = array_keys(genc_reg_photo_slots()); $slot = $slots[count($sections)];   // [GENC-06OKT26-ISI] gambar report opsional
+            // [GENC-07OKT26-FOTO] bagian tanpa item = tanpa gambar (kerangka bagian tetap utuh di report)
             $sections[] = array('key' => $k, 'title' => $s['title'], 'short' => $s['short'], 'standard_label' => $s['standard_label'],
-                'photo' => $slot, 'photo_label' => ($k === 'cleaning' ? 'Gambar Bagian Mesin' : ''), 'blank_rows' => empty($items) ? 2 : 0, 'items' => $items);
+                'photo' => empty($items) ? '' : $slot, 'photo_label' => ($k === 'cleaning' ? 'Gambar Bagian Mesin' : ''), 'blank_rows' => empty($items) ? 2 : 0, 'items' => $items);
         }
         $units = array();
         foreach (genc_reg_units_of_folder($name) as $r) {
             $u = array('label' => $r['label'], 'alias' => $r['alias_arr'], 'reg_id' => (int) $r['id']);
             if ((int) $r['aktif'] === 0) { $u['inactive'] = true; }
+            if (!empty($r['arsip'])) { $u['archived'] = true; }
             $units[] = $u;
         }
         return array(
@@ -442,23 +578,33 @@ if (!function_exists('genc_reg_db')) {
             foreach ($raw[$k] as $it) {
                 if (!is_array($it) || !isset($it['db']) || !genc_reg_db_col_ok($it['db'])) { continue; }
                 $row = array('db' => $it['db'], 'aktif' => !isset($it['aktif']) || !empty($it['aktif']), 'baru' => !empty($it['baru']));
-                foreach (array('part', 'standar', 'metode', 'alat', 'durasi', 'foto') as $f) { $row[$f] = isset($it[$f]) ? (string) $it[$f] : ''; }
+                foreach (array('part', 'standar', 'metode', 'alat', 'durasi') as $f) { $row[$f] = isset($it[$f]) ? (string) $it[$f] : ''; }
+                $row['fotos'] = genc_reg_fotos_of($it);   // [GENC-07OKT26-FOTO]
+                $row['foto'] = $row['fotos'] ? $row['fotos'][0] : '';
                 $out[$k][] = $row;
             }
         }
         return $out;
     }
 
-    /** Gambar report yang diganti: [atas|tengah|bawah => array('path','w','h')] ('' path = disembunyikan). */
-    function genc_reg_ov_gambar($profile) {
+    /** JSON genc_profil.gambar mentah: [slot => array] (kosong kalau tidak ada). */
+    function genc_reg_gambar_raw($profile) {
         $r = genc_reg_ov_row($profile);
-        $out = array();
-        if (!$r || $r['gambar'] === null || $r['gambar'] === '') { return $out; }
+        if (!$r || $r['gambar'] === null || $r['gambar'] === '') { return array(); }
         $raw = json_decode((string) $r['gambar'], true);
-        if (!is_array($raw)) { return $out; }
+        return is_array($raw) ? $raw : array();
+    }
+
+    /**
+     * Gambar PANEL yang diganti lewat menu: [atas|tengah|bawah => array('path','w','h')] ('' path = gambar bawaan disembunyikan).
+     * [GENC-07OKT26-FOTO] slot yang hanya berisi pengaturan kolase (mode/hide/extra, tanpa 'path') tidak dihitung di sini.
+     */
+    function genc_reg_ov_gambar($profile) {
+        $out = array();
+        $raw = genc_reg_gambar_raw($profile);
         foreach (genc_reg_photo_slots() as $k => $lbl) {
-            if (!isset($raw[$k]) || !is_array($raw[$k])) { continue; }
-            $p = isset($raw[$k]['path']) ? str_replace('\\', '/', (string) $raw[$k]['path']) : '';
+            if (!isset($raw[$k]) || !is_array($raw[$k]) || !array_key_exists('path', $raw[$k])) { continue; }
+            $p = str_replace('\\', '/', (string) $raw[$k]['path']);
             if ($p !== '' && (strpos($p, '..') !== false || !is_file(ROOT . $p))) { continue; }   // file hilang -> kembali ke bawaan
             $out[$k] = array('path' => $p, 'w' => max(20, min(152, (int) (isset($raw[$k]['w']) ? $raw[$k]['w'] : 152))), 'h' => max(20, min(260, (int) (isset($raw[$k]['h']) ? $raw[$k]['h'] : 135))));
         }
@@ -468,6 +614,49 @@ if (!function_exists('genc_reg_db')) {
     /** Slot gambar bagian mesin di report (kolom kiri), per bagian checklist. */
     function genc_reg_photo_slots() {
         return array('atas' => 'Pembersihan', 'tengah' => 'Pelumasan', 'bawah' => 'Pengecekan');
+    }
+
+    /** [GENC-07OKT26-FOTO] Slot gambar sebuah bagian: 'photo' di profil, atau menurut kunci bagian (cleaning/lubricating/inspection). */
+    function genc_reg_section_slot($s, $index = 0) {
+        if (isset($s['photo']) && (string) $s['photo'] !== '') { return (string) $s['photo']; }
+        $by = array('cleaning' => 'atas', 'lubricating' => 'tengah', 'inspection' => 'bawah');
+        if (isset($s['key']) && isset($by[$s['key']])) { return $by[$s['key']]; }
+        $slots = array_keys(genc_reg_photo_slots());
+        return isset($slots[$index]) ? $slots[$index] : 'bawah';
+    }
+
+    /**
+     * [GENC-07OKT26-FOTO] Pengaturan gambar bagian mesin per slot:
+     *   mode   'panel' = 1 gambar utuh (bawaan / diunggah)   'auto' = kolase otomatis dari foto item (bernomor)
+     *   hide   foto (path) yang tidak ikut kolase
+     *   extra  foto tambahan untuk kolase: [array('path', 'db')] (db = item yang ditunjuk, nomornya ikut item)
+     * Mode bawaan (belum pernah dipilih): 'panel' kalau slot punya gambar (bawaan / diunggah), selain itu 'auto'.
+     * $images = images profil SEBELUM gambar menu ditimpakan (gambar bawaan dari kode).
+     */
+    function genc_reg_gambar_cfg($profile, $images = array()) {
+        $raw = genc_reg_gambar_raw($profile);
+        $ov = genc_reg_ov_gambar($profile);
+        $out = array();
+        foreach (genc_reg_photo_slots() as $k => $lbl) {
+            $r = (isset($raw[$k]) && is_array($raw[$k])) ? $raw[$k] : array();
+            $mode = (isset($r['mode']) && in_array($r['mode'], array('auto', 'panel'), true)) ? $r['mode'] : '';
+            if ($mode === '') {
+                $base = (isset($images[$k]) && (string) $images[$k] !== '' && is_file(ROOT . $images[$k]));
+                $mode = (isset($ov[$k]) || $base) ? 'panel' : 'auto';
+            }
+            $hide = array();
+            foreach ((isset($r['hide']) && is_array($r['hide'])) ? $r['hide'] : array() as $p) { $p = str_replace('\\', '/', (string) $p); if ($p !== '' && strpos($p, '..') === false) { $hide[$p] = true; } }
+            $extra = array();
+            foreach ((isset($r['extra']) && is_array($r['extra'])) ? $r['extra'] : array() as $x) {
+                if (!is_array($x) || empty($x['path']) || !isset($x['db'])) { continue; }
+                $p = str_replace('\\', '/', (string) $x['path']);
+                if (strpos($p, '..') !== false || !genc_reg_db_col_ok((string) $x['db']) && !preg_match('/^item_\d{2,3}$/', (string) $x['db'])) { continue; }
+                $extra[] = array('path' => $p, 'db' => (string) $x['db']);
+                if (count($extra) >= GENC_REG_MAX_EXTRA) { break; }
+            }
+            $out[$k] = array('mode' => $mode, 'hide' => array_keys($hide), 'extra' => $extra, 'set' => isset($r['mode']));
+        }
+        return $out;
     }
 
     /** Profil dari FILE saja (tanpa salinan menu) - acuan "isi bawaan". */
@@ -503,8 +692,9 @@ if (!function_exists('genc_reg_db')) {
                     foreach (array('part', 'alat', 'metode', 'standar', 'durasi') as $f) { $row[$f] = isset($it[$f]) ? (string) $it[$f] : ''; }
                     $row['db'] = $it['db'];
                     $row['no'] = ++$no;
-                    $foto = isset($it['foto']) ? (string) $it['foto'] : '';
-                    if ($foto !== '' && is_file(ROOT . $foto)) { $row['foto'] = $foto; } else { unset($row['foto']); }
+                    $fotos = genc_reg_fotos_existing($it);   // [GENC-07OKT26-FOTO] banyak foto per item
+                    unset($row['foto'], $row['fotos']);
+                    if ($fotos) { $row['foto'] = $fotos[0]; $row['fotos'] = $fotos; }
                     if (!empty($it['baru'])) { $row['baru'] = true; }
                     $items[] = $row;
                 }
@@ -512,10 +702,17 @@ if (!function_exists('genc_reg_db')) {
                 $conf['sections'][$si]['items'] = $items;
                 $bl = isset($s['blank_rows']) ? (int) $s['blank_rows'] : 0;
                 $conf['sections'][$si]['blank_rows'] = empty($items) ? ($was === 0 ? $bl : 2) : ($was === 0 ? 0 : $bl);
+                // [GENC-07OKT26-FOTO] semua item bagian ini dihapus lewat menu -> gambarnya ikut hilang (kerangka bagian tetap).
+                // Bagian yang dari awal kosong (form resmi, mis. Pelumasan Conveyor) tetap memakai gambar bawaannya.
+                if (empty($items) && $was > 0) { $conf['sections'][$si]['photo'] = ''; }
+                // bagian yang dulu kosong tanpa slot gambar (mis. Pelumasan Dumping) lalu diberi item -> dapat slot sendiri
+                if (!empty($items) && (!isset($s['photo']) || (string) $s['photo'] === '')) { $conf['sections'][$si]['photo'] = genc_reg_section_slot(array('key' => $sk), $si); }
             }
             $conf['hidden_cols'] = $hidden;
             $conf['isi_menu'] = true;
         }
+        // [GENC-07OKT26-FOTO] mode gambar per bagian (panel / kolase otomatis), dihitung dari gambar bawaan sebelum ditimpa
+        $conf['gambar_cfg'] = genc_reg_gambar_cfg($profile, isset($conf['images']) ? (array) $conf['images'] : array());
         foreach (genc_reg_ov_gambar($profile) as $k => $g) {
             if (!isset($conf['images']) || !is_array($conf['images'])) { $conf['images'] = array(); }
             $conf['images'][$k] = $g['path'];
@@ -541,7 +738,7 @@ if (!function_exists('genc_reg_db')) {
             foreach ((array) $s['items'] as $it) {
                 if (empty($it['db']) || isset($listed[$it['db']])) { continue; }
                 $out[$k][] = array('db' => $it['db'], 'part' => (string) $it['part'], 'standar' => (string) $it['standar'], 'metode' => (string) $it['metode'],
-                    'alat' => (string) $it['alat'], 'durasi' => (string) $it['durasi'], 'foto' => isset($it['foto']) ? (string) $it['foto'] : '', 'aktif' => true, 'baru' => false);
+                    'alat' => (string) $it['alat'], 'durasi' => (string) $it['durasi'], 'foto' => isset($it['foto']) ? (string) $it['foto'] : '', 'fotos' => genc_reg_fotos_of($it), 'aktif' => true, 'baru' => false);
             }
         }
         return $out;
@@ -558,7 +755,7 @@ if (!function_exists('genc_reg_db')) {
             foreach ((array) $s['items'] as $it) {
                 if (empty($it['db'])) { continue; }
                 $out[$k][] = array('db' => $it['db'], 'part' => (string) $it['part'], 'standar' => (string) $it['standar'], 'metode' => (string) $it['metode'],
-                    'alat' => (string) $it['alat'], 'durasi' => (string) $it['durasi'], 'foto' => isset($it['foto']) ? (string) $it['foto'] : '', 'aktif' => true, 'baru' => false);
+                    'alat' => (string) $it['alat'], 'durasi' => (string) $it['durasi'], 'foto' => isset($it['foto']) ? (string) $it['foto'] : '', 'fotos' => genc_reg_fotos_of($it), 'aktif' => true, 'baru' => false);
             }
         }
         return $out;
@@ -610,7 +807,134 @@ if (!function_exists('genc_reg_db')) {
             }
         }
         foreach ($d['mesin'] as $p => $m) { if ((int) $m['aktif'] === 0 || genc_reg_item_count($m) === 0) { $set[$p . '|'] = true; } }
+        // [GENC-08OKT26-MESIN] mesin awal yang dinonaktifkan: semua halamannya nonaktif
+        foreach ($bf as $k => $f) {
+            if ($f['aktif']) { continue; }
+            foreach (genc_reg_folder_pages($k) as $p) { $set[$p . '|'] = true; }
+        }
         return $set;
+    }
+
+    /** [GENC-08OKT26-MESIN] Semua halaman (route) sebuah mesin awal, urut tab: halaman di kode lalu unit baru. */
+    function genc_reg_folder_pages($key) {
+        $bf = genc_reg_builtin_folders_def();
+        if (!isset($bf[$key])) { return array(); }
+        $f = $bf[$key];
+        $pages = array();
+        if ($f['mode'] === 'units') { foreach ($f['types'] as $t) { $pages[$t['page']] = true; } }
+        else {
+            foreach ($f['pages'] as $p => $t) { $pages[$p] = true; }
+            foreach (genc_reg_units_of_folder($key) as $u) { $pages[$u['page']] = true; }
+        }
+        return array_keys($pages);
+    }
+
+    /**
+     * [GENC-08OKT26-P3] Diarsipkan ("hapus" yang aman): set "page|slug" seperti genc_reg_inactive_set().
+     * Arsip = nonaktif + keluar dari semua daftar (sidebar, Home, Approval/NOK, pohon utama, matriks). Data & tabel tetap.
+     */
+    function genc_reg_archived_set() {
+        $d = genc_reg_data();
+        $bf = genc_reg_builtin_folders();
+        $set = array();
+        foreach ($d['unit'] as $r) {
+            if (empty($r['arsip'])) { continue; }
+            if ((int) $r['builtin'] === 0 && isset($bf[$r['folder']]) && $bf[$r['folder']]['mode'] === 'tables') { $set[$r['page'] . '|'] = true; }
+            else { $set[$r['page'] . '|' . $r['slug']] = true; }
+        }
+        foreach ($d['mesin'] as $p => $m) { if (!empty($m['arsip'])) { $set[$p . '|'] = true; } }
+        foreach ($bf as $k => $f) { if ($f['arsip']) { foreach (genc_reg_folder_pages($k) as $p) { $set[$p . '|'] = true; } } }
+        return $set;
+    }
+
+    /**
+     * [GENC-13OKT26] Route mesin AWAL yang sudah DIHAPUS PERMANEN: seluruh mesinnya, atau unit 1-tabel-per-unit
+     * (KIR6, Geprek, Conveyor 1, ...) yang dihapus permanen. Dipakai Router (-> 404). Bukan halaman mesin awal: false.
+     */
+    function genc_reg_is_deleted_page($page) {
+        $page = strtolower((string) $page);
+        $fk = '';
+        foreach (genc_reg_builtin_folders_def() as $k => $f) {
+            $pages = $f['mode'] === 'units' ? array_map(function ($t) { return $t['page']; }, $f['types']) : array_keys($f['pages']);
+            if (in_array($page, $pages, true)) { $fk = $k; break; }
+        }
+        if ($fk === '') { return false; }
+        $bf = genc_reg_builtin_folders();
+        if (!empty($bf[$fk]['hapus'])) { return true; }
+        $n = genc_reg_builtin_note($page, '');
+        return $n && (int) $n['arsip'] === GENC_REG_HAPUS;
+    }
+
+    /** [GENC-13OKT26] Hak akses yang TIDAK ikut dihapus saat mesin awal dihapus permanen: route bersama (Approval / NOK History di palletmover). */
+    function genc_reg_shared_actions($page) {
+        return $page === 'palletmover' ? array('approval', 'uncompleted') : array();
+    }
+
+    function genc_reg_is_archived($page, $slug = '') {
+        $s = genc_reg_archived_set();
+        return isset($s[$page . '|' . (string) $slug]) || ($slug !== '' && isset($s[$page . '|']));
+    }
+
+    /** [GENC-08OKT26-P3] Folder mesin awal pemilik sebuah profil report ('' kalau bukan). */
+    function genc_reg_folder_of_profile($profile) {
+        $bp = genc_reg_builtin_profiles();
+        return isset($bp[$profile]) ? $bp[$profile]['folder'] : '';
+    }
+
+    /**
+     * [GENC-08OKT26-P3] Ganti nama mesin awal di sebuah teks: nama awal (utuh, bukan potongan kata) -> nama baru.
+     * $lower = teks huruf kecil (name_lower). Tidak diganti nama: teks dikembalikan apa adanya.
+     */
+    function genc_reg_rename_text($key, $text, $lower = false) {
+        $bf = genc_reg_builtin_folders();
+        if (!isset($bf[$key]) || $bf[$key]['title'] === $bf[$key]['title_awal'] || (string) $text === '') { return $text; }
+        $from = $bf[$key]['title_awal']; $to = $bf[$key]['title'];
+        if ($lower) { $to = function_exists('mb_strtolower') ? mb_strtolower($to, 'UTF-8') : strtolower($to); }
+        $out = preg_replace('/(?<![A-Za-z0-9])' . preg_quote($from, '/') . '(?![A-Za-z0-9])/u' . ($lower ? 'i' : ''), str_replace(array('\\', '$'), array('\\\\', '\\$'), $to), (string) $text);
+        return $out === null ? $text : $out;
+    }
+
+    /**
+     * [GENC-08OKT26-P3] Dipanggil di akhir checklist_load_machine() (SESUDAH overrides controller): nama, area,
+     * pelaksanaan mesin awal yang diubah lewat Mesin & Unit. Tanpa perubahan: $conf tidak disentuh (report identik).
+     * Judul report yang tidak memuat nama awal (Pallet Mover / Pallet Stacker) -> "Checklist AM <nama> - <jenis>".
+     */
+    function genc_reg_final_conf($profile, $conf) {
+        $fk = genc_reg_folder_of_profile($profile);
+        if ($fk === '') { return $conf; }
+        $bf = genc_reg_builtin_folders();
+        $f = $bf[$fk];
+        if ($f['title'] !== $f['title_awal']) {
+            foreach (array('title', 'machine_code') as $k) {
+                if (!isset($conf[$k])) { continue; }
+                $new = genc_reg_rename_text($fk, $conf[$k]);
+                if ($k === 'title' && $new === $conf[$k]) {
+                    $bp = genc_reg_builtin_profiles();
+                    $new = 'Checklist AM ' . $f['title'] . (isset($bp[$profile]) && $bp[$profile]['label'] !== $f['title_awal'] ? ' - ' . $bp[$profile]['label'] : '');
+                }
+                $conf[$k] = $new;
+            }
+        }
+        if ($f['area'] !== null) { $conf['area'] = $f['area']; }
+        if ($f['pelaksanaan'] !== null) { $conf['pelaksanaan'] = $f['pelaksanaan']; }
+        return $conf;
+    }
+
+    /** [GENC-08OKT26-P3] Konfigurasi halaman mesin awal (GencChecklistBase::genc_c): nama & area yang diubah. */
+    function genc_reg_page_conf($c) {
+        if (empty($c['page'])) { return $c; }
+        $f = genc_reg_folder_of_page($c['page']);
+        if (!$f || !empty($f['jenis'])) { return $c; }
+        foreach (array('group_title', 'title', 'machine_title') as $k) { if (isset($c[$k])) { $c[$k] = genc_reg_rename_text($f['key'], $c[$k]); } }
+        if (isset($c['name_lower'])) { $c['name_lower'] = genc_reg_rename_text($f['key'], $c['name_lower'], true); }
+        if ($f['area'] !== null) { $c['area'] = $f['area']; }
+        return $c;
+    }
+
+    /** [GENC-08OKT26-MESIN] Masih "baru" (dibuat <= GENC_REG_NEW_DAYS hari lalu)? */
+    function genc_reg_is_new($created_at) {
+        $t = $created_at ? strtotime((string) $created_at) : false;
+        return $t !== false && $t > 0 && (time() - $t) < GENC_REG_NEW_DAYS * 86400;
     }
 
     function genc_reg_is_inactive($page, $slug = '') {
@@ -669,11 +993,40 @@ if (!function_exists('genc_reg_db')) {
         return $out;
     }
 
-    /** Ikon yang boleh dipilih untuk jenis baru (semua ada di Font Awesome 4.5 bawaan phpRAD). */
+    /**
+     * Ikon yang boleh dipilih untuk semua mesin (semua ada di Font Awesome 4.5 bawaan phpRAD - dicek ke
+     * assets/css/font-awesome.min.css). [GENC-08OKT26-MESIN] 24 -> 80, termasuk ikon 6 mesin awal.
+     * Nilai = kata kunci pencarian (Indonesia / Inggris).
+     */
+    function genc_reg_icon_words() {
+        return array(
+            // mesin & alat
+            'fa-cube' => 'kubus kotak box', 'fa-cubes' => 'kubus banyak boxes', 'fa-cogs' => 'gir mesin gear', 'fa-cog' => 'gir mesin gear setting',
+            'fa-wrench' => 'kunci pas perbaikan tool', 'fa-gavel' => 'palu hammer', 'fa-industry' => 'pabrik industri factory', 'fa-compress' => 'geprek tekan press',
+            'fa-expand' => 'perluas expand', 'fa-download' => 'dumping turun unduh', 'fa-upload' => 'naik unggah upload', 'fa-exchange' => 'conveyor tukar pindah',
+            'fa-random' => 'acak sortir', 'fa-refresh' => 'putar ulang refresh', 'fa-recycle' => 'daur ulang recycle', 'fa-filter' => 'saring filter',
+            'fa-magnet' => 'magnet', 'fa-plug' => 'colokan listrik plug', 'fa-bolt' => 'listrik petir bolt', 'fa-power-off' => 'power daya',
+            'fa-battery-full' => 'baterai penuh battery', 'fa-battery-half' => 'baterai setengah battery', 'fa-battery-empty' => 'baterai kosong battery charger',
+            'fa-tachometer' => 'speedometer meter', 'fa-tint' => 'cairan oli air tetes', 'fa-fire' => 'api panas fire',
+            'fa-fire-extinguisher' => 'apar pemadam', 'fa-lightbulb-o' => 'lampu ide bulb', 'fa-print' => 'printer cetak', 'fa-barcode' => 'barcode label',
+            'fa-qrcode' => 'qr kode', 'fa-balance-scale' => 'timbangan scale', 'fa-flask' => 'lab kimia flask', 'fa-eyedropper' => 'pipet sampel',
+            'fa-scissors' => 'gunting potong cutter', 'fa-paint-brush' => 'kuas cat', 'fa-desktop' => 'komputer monitor pc',
+            'fa-laptop' => 'laptop', 'fa-mobile' => 'hp handphone scanner', 'fa-hdd-o' => 'harddisk server', 'fa-server' => 'server rak',
+            'fa-sitemap' => 'struktur jaringan', 'fa-wifi' => 'wifi sinyal', 'fa-video-camera' => 'cctv kamera', 'fa-camera' => 'kamera foto',
+            'fa-lock' => 'gembok kunci lock', 'fa-key' => 'kunci key', 'fa-shield' => 'perisai keamanan', 'fa-bell' => 'bel alarm',
+            // angkut & gudang
+            'fa-truck' => 'forklift truk', 'fa-car' => 'mobil kendaraan', 'fa-bus' => 'bus', 'fa-bicycle' => 'sepeda',
+            'fa-rocket' => 'agv roket', 'fa-plane' => 'pesawat', 'fa-ship' => 'kapal', 'fa-subway' => 'kereta rel',
+            'fa-shopping-cart' => 'troli keranjang cart', 'fa-cart-plus' => 'troli tambah', 'fa-cart-arrow-down' => 'troli muat', 'fa-archive' => 'arsip kotak',
+            'fa-dropbox' => 'kotak paket box', 'fa-th-large' => 'pallet mover grid', 'fa-th' => 'pallet rak grid', 'fa-bars' => 'rak garis',
+            'fa-building' => 'gedung gudang', 'fa-home' => 'rumah', 'fa-map-marker' => 'lokasi area', 'fa-road' => 'jalan',
+            'fa-arrows' => 'arah gerak', 'fa-arrows-v' => 'naik turun lift', 'fa-arrows-h' => 'kiri kanan geser', 'fa-level-up' => 'angkat lifter',
+            'fa-sort-amount-asc' => 'tumpuk stacker', 'fa-life-ring' => 'pelampung safety', 'fa-medkit' => 'p3k medis', 'fa-leaf' => 'daun lingkungan', 'fa-sun-o' => 'matahari panas', 'fa-flag' => 'bendera', 'fa-star' => 'bintang',
+        );
+    }
+
     function genc_reg_icons() {
-        return array('fa-cube', 'fa-cubes', 'fa-cogs', 'fa-wrench', 'fa-bolt', 'fa-industry', 'fa-truck', 'fa-shopping-cart',
-            'fa-cart-plus', 'fa-archive', 'fa-plug', 'fa-fire-extinguisher', 'fa-tachometer', 'fa-battery-full', 'fa-arrows-v',
-            'fa-arrows-h', 'fa-recycle', 'fa-tint', 'fa-filter', 'fa-lightbulb-o', 'fa-car', 'fa-print', 'fa-balance-scale', 'fa-magnet');
+        return array_keys(genc_reg_icon_words());
     }
 
     /**
@@ -683,16 +1036,42 @@ if (!function_exists('genc_reg_db')) {
     function genc_reg_hub_machines() {
         $out = array();
         foreach (genc_reg_builtin_folders() as $k => $f) {
-            $pages = array();
-            if ($f['mode'] === 'units') { foreach ($f['types'] as $t) { $pages[$t['page']] = true; } }
-            else {
-                foreach ($f['pages'] as $p => $t) { $pages[$p] = true; }
-                foreach (genc_reg_units_of_folder($k) as $u) { $pages[$u['page']] = true; }
-            }
-            $out[] = array('title' => $f['title'], 'icon' => $f['icon'], 'pages' => array_keys($pages));
+            if ($f['arsip']) { continue; }   // [GENC-08OKT26-P3] diarsipkan: keluar dari semua daftar
+            $out[] = array('title' => $f['title'], 'icon' => $f['icon'], 'pages' => genc_reg_folder_pages($k));
         }
-        foreach (genc_reg_active_jenis() as $p => $m) {
+        // [GENC-08OKT26-MESIN] jenis nonaktif ikut di sini (Home menyembunyikan halaman nonaktif; Approval / NOK
+        // History tetap menampilkannya selama masih ada yang menunggu / perlu tindakan - sama dengan mesin lain)
+        foreach (genc_reg_data()['mesin'] as $p => $m) {
+            if (genc_reg_item_count($m) === 0 || !empty($m['arsip'])) { continue; }
             $out[] = array('title' => $m['nama'], 'icon' => $m['ikon'], 'pages' => array($p));
+        }
+        return $out;
+    }
+
+    /**
+     * [GENC-08OKT26-MESIN] Sidebar untuk 6 mesin awal: [menu page => array('icon', 'aktif', 'pages' => [route urut tab],
+     * 'off' => [route => true] halaman yang nonaktif / semua unitnya nonaktif)]. Menu mengarah ke halaman AKTIF pertama.
+     */
+    function genc_reg_sidebar() {
+        $out = array();
+        $set = genc_reg_inactive_set();
+        $d = genc_reg_data();
+        foreach (genc_reg_builtin_folders() as $k => $f) {
+            $pages = genc_reg_folder_pages($k);
+            $off = array();
+            foreach ($pages as $p) { if (isset($set[$p . '|'])) { $off[$p] = true; } }
+            if ($f['mode'] === 'units' && $f['aktif']) {
+                $any = false;
+                foreach ($d['unit'] as $r) { if ($r['folder'] === $k && (int) $r['aktif'] === 0) { $any = true; } }
+                if ($any) {
+                    $on = array();
+                    foreach ($f['types'] as $t) {
+                        foreach (checklist_machine_units(checklist_load_machine($t['profile'])) as $u) { if (empty($u['inactive'])) { $on[$t['page']] = true; } }
+                    }
+                    foreach ($pages as $p) { if (!isset($on[$p])) { $off[$p] = true; } }
+                }
+            }
+            $out[$f['menu']] = array('icon' => $f['icon'], 'aktif' => $f['aktif'] && !$f['arsip'], 'pages' => $pages, 'off' => $off, 'title' => $f['title']);
         }
         return $out;
     }
@@ -712,9 +1091,12 @@ if (!function_exists('genc_reg_db')) {
         $out = array();
         foreach (genc_reg_builtin_folders() as $k => $f) {
             if ($f['mode'] !== 'tables') { continue; }
-            foreach (genc_reg_units_of_folder($k) as $u) { $out[$u['page']] = trim(($f['prefix'] !== '' ? $f['prefix'] . ' ' : '') . $u['label']); }
+            foreach (genc_reg_units_of_folder($k) as $u) {
+                if (!empty($u['arsip']) || $f['arsip']) { continue; }   // [GENC-08OKT26-P3] arsip: keluar dari matriks (hak akses tetap tersimpan)
+                $out[$u['page']] = trim(($f['prefix'] !== '' ? genc_reg_rename_text($k, $f['prefix']) . ' ' : '') . $u['label']);
+            }
         }
-        foreach (genc_reg_data()['mesin'] as $p => $m) { $out[$p] = $m['nama']; }
+        foreach (genc_reg_data()['mesin'] as $p => $m) { if (empty($m['arsip'])) { $out[$p] = $m['nama']; } }
         return $out;
     }
 

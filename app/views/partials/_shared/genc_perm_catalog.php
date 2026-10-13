@@ -37,6 +37,15 @@ if (!function_exists('genc_perm_catalog')) {
         );
         // [GENC-06OKT26-MESIN] halaman mesin yang dibuat lewat menu Mesin & Unit (route am_*)
         require_once __DIR__ . '/genc_registry.php';
+        // [GENC-08OKT26-P3] mesin awal: nama baru dari Mesin & Unit; mesin / unit di Arsip tidak tampil (hak aksesnya tetap tersimpan)
+        $rows = array();
+        foreach ($cat[0]['rows'] as $r) {
+            if (genc_reg_is_archived($r['page'], '')) { continue; }
+            $f = genc_reg_folder_of_page($r['page']);
+            if ($f && empty($f['jenis'])) { $r['name'] = genc_reg_rename_text($f['key'], $r['name']); }
+            $rows[] = $r;
+        }
+        $cat[0]['rows'] = $rows;
         foreach (genc_reg_perm_rows() as $page => $name) {
             $cat[0]['rows'][] = array('page' => $page, 'name' => $name, 'actions' => $m, 'machine' => true, 'sub' => 'ditambah lewat Mesin & Unit');
         }

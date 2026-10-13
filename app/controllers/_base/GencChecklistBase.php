@@ -32,6 +32,7 @@
  * ============================================================================
  */
 require_once __DIR__ . '/../../views/partials/_shared/checklist_report_engine.php';
+require_once __DIR__ . '/../../views/partials/_shared/genc_helpers.php';   // [GENC-08OKT26-P3] genc_pilihan_label() (label tombol hasil cek)
 
 abstract class GencChecklistBase extends SecureController{
 
@@ -133,6 +134,7 @@ abstract class GencChecklistBase extends SecureController{
 				'extra_fields'      => array(),
 			), $this->genc_conf());
 			$c = genc_reg_apply_conf($c);   // [GENC-06OKT26-MESIN] Dumping/Geprek/Conveyor: tab unit baru dari menu Mesin & Unit (tanpa unit baru: $c tidak berubah)
+			$c = genc_reg_page_conf($c);    // [GENC-08OKT26-P3] nama & area mesin awal dari menu Mesin & Unit (tanpa perubahan: $c tetap)
 			$this->genc_cache['conf'] = $c;
 		}
 		return $this->genc_cache['conf'];
@@ -1134,7 +1136,7 @@ abstract class GencChecklistBase extends SecureController{
 			}
 		}
 		if($has_issue && $old['keterangan'] === ''){
-			$errors['keterangan'] = 'Ada item Tidak Baik / Perawatan &mdash; tulis keterangannya (apa yang ditemukan, sudah dilaporkan ke siapa).';
+			$errors['keterangan'] = 'Ada item ' . genc_e(genc_pilihan_label('NOK') . ' / ' . genc_pilihan_label('PR')) . ' &mdash; tulis keterangannya (apa yang ditemukan, sudah dilaporkan ke siapa).';
 		}
 		return $errors;
 	}
@@ -1164,7 +1166,7 @@ abstract class GencChecklistBase extends SecureController{
 		$log = $c['edit_log'];
 		if(!empty($log['date']) && $this->genc_has_column($log['date'])){ $modeldata[$log['date']] = $this->genc_now_for($log['date']); }
 		if(!empty($log['note']) && $this->genc_has_column($log['note'])){
-			$label = array('OK' => 'Baik', 'NOK' => 'Tidak baik', 'PR' => 'Perawatan');
+			$label = genc_pilihan_labels();   // [GENC-08OKT26-P3] label dari Master Select
 			$parts = array();
 			foreach($items as $it){
 				$from = (string) $record[$it['db']]; $to = (string) $modeldata[$it['db']];
@@ -1218,7 +1220,7 @@ abstract class GencChecklistBase extends SecureController{
 			foreach($extra as $f){ $line[] = $r[$f['db']]; }
 			foreach($items as $it){ $line[] = $r[$it['db']]; }
 			$line = array_merge($line, array(
-				$this->genc_is_ok($r, $items) ? 'Baik' : 'Perlu tindakan',
+				$this->genc_is_ok($r, $items) ? genc_pilihan_label('OK') : 'Perlu tindakan',
 				$r['keterangan'], $r['approval'], $r['user_approve'], $r['date_approve'],
 			));
 			fputcsv($out, $line, $sep);

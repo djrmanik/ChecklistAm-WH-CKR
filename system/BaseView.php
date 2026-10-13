@@ -273,6 +273,7 @@ class BaseView
 		$get = $this->form_data =  filter_input_array(INPUT_GET, FILTER_SANITIZE_STRING);;
 		if (!empty($get)) {
 			foreach ($get as $obj => $val) {
+				if (is_array($val)) { continue; }   // [GENC-13OKT26-AUDIT] ?format[]=1 dulu = Fatal error di semua halaman
 				$this->$obj = $val;
 			}
 		}

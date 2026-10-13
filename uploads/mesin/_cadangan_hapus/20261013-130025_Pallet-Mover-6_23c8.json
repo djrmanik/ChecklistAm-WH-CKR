@@ -1,0 +1,15 @@
+{
+    "title": "Pallet Mover 6",
+    "kind": "unit",
+    "what": "Unit \"Pallet Mover 6\" dari mesin Pallet Mover & Stacker (dibuat lewat menu)",
+    "folder": "palletmover",
+    "by": "djrmanik",
+    "at": "2026-10-13 13:00:25",
+    "checklist": 0,
+    "pdf": 0,
+    "foto": 0,
+    "excel": "data/Pallet-Mover-6-data-checklist.xlsx",
+    "builtin": false,
+    "zip": "20261013-130025_Pallet-Mover-6_23c8.zip",
+    "size": 6867
+}

@@ -135,7 +135,7 @@ $num      = 0;
         <?php if ($mode === 'edit' && !empty($legacy)): ?>
             <div class="genc-notice genc-notice--info">
                 <i class="fa fa-history"></i>
-                <div><strong>Checklist ini diisi lewat form lama</strong> (hasil diketik bebas). <?php echo count($legacy); ?> item perlu dipilih ulang: Baik / Tidak baik / Perawatan &mdash; isian lamanya ditampilkan di bawah nama item sebagai petunjuk.</div>
+                <div><strong>Checklist ini diisi lewat form lama</strong> (hasil diketik bebas). <?php echo count($legacy); ?> item perlu dipilih ulang: <?php echo genc_e(implode(' / ', genc_pilihan_labels())); ?> &mdash; isian lamanya ditampilkan di bawah nama item sebagai petunjuk.</div>
             </div>
         <?php endif; ?>
 
@@ -174,9 +174,10 @@ $num      = 0;
                 ?>
                     <div class="genc-item<?php echo $err ? ' has-error' : ''; ?>" data-genc-item data-genc-name="<?php echo genc_e($it['part']); ?>" id="item-<?php echo genc_e($key); ?>">
                         <div class="genc-item__no"><?php echo (int) $it['no']; ?></div>
-                        <?php if (!empty($it['foto'])): ?>
-                            <button type="button" class="genc-thumb" data-genc-lightbox="<?php echo genc_e(set_url($it['foto'])); ?>" data-genc-caption="<?php echo genc_e($it['no'] . '. ' . $it['part']); ?>" aria-label="Perbesar foto <?php echo genc_e($it['part']); ?>">
-                                <img src="<?php echo genc_e(set_url($it['foto'])); ?>" alt="" width="88" height="66"><?php /* [23SEP26] TANPA loading="lazy": page-scripts.js phpRAD (baris ~756) mengganti semua <img> yang belum termuat saat window load dengan no-image-available.png -> foto lazy jadi placeholder permanen */ ?>
+                        <?php if (!empty($it['foto'])):
+                            $gal = (!empty($it['fotos']) && count($it['fotos']) > 1) ? array_map('set_url', $it['fotos']) : array();   /* [GENC-07OKT26-FOTO] banyak foto: galeri di lightbox */ ?>
+                            <button type="button" class="genc-thumb" data-genc-lightbox="<?php echo genc_e(set_url($it['foto'])); ?>" data-genc-caption="<?php echo genc_e($it['no'] . '. ' . $it['part']); ?>" aria-label="Perbesar foto <?php echo genc_e($it['part']); ?>"<?php echo $gal ? ' data-genc-gallery="' . genc_e(json_encode($gal)) . '"' : ''; ?>>
+                                <img src="<?php echo genc_e(set_url($it['foto'])); ?>" alt="" width="88" height="66"><?php /* [23SEP26] TANPA loading="lazy": page-scripts.js phpRAD (baris ~756) mengganti semua <img> yang belum termuat saat window load dengan no-image-available.png -> foto lazy jadi placeholder permanen */ ?><?php if ($gal): ?><span class="genc-thumb__n"><i class="fa fa-clone" aria-hidden="true"></i> <?php echo count($gal); ?></span><?php endif; ?>
                             </button>
                         <?php else: echo genc_thumb_empty($it, $g); /* [GENC-24SEP26-AGV] K19: kotak "Belum ada foto", klik = penjelasan */ endif; ?>
                         <div class="genc-item__body">
@@ -199,7 +200,7 @@ $num      = 0;
                         </div>
                         <div class="genc-item__answer">
                             <div class="genc-seg" role="radiogroup" aria-label="Hasil <?php echo genc_e($it['part']); ?>">
-                                <?php foreach (array('OK' => array('Baik', 'fa-check'), 'NOK' => array('Tidak baik', 'fa-times'), 'PR' => array('Perawatan', 'fa-wrench')) as $v => $lb):
+                                <?php foreach (array('OK' => array(genc_e(genc_pilihan_label('OK')), 'fa-check'), 'NOK' => array(genc_e(genc_pilihan_label('NOK')), 'fa-times'), 'PR' => array(genc_e(genc_pilihan_label('PR')), 'fa-wrench')) as $v => $lb):   /* [GENC-08OKT26-P3] label dari Master Select */
                                     $rid = 'r-' . $key . '-' . strtolower($v); ?>
                                     <input type="radio" id="<?php echo $rid; ?>" name="<?php echo genc_e($key); ?>" value="<?php echo $v; ?>"<?php echo $cur === $v ? ' checked' : ''; ?>>
                                     <label for="<?php echo $rid; ?>"><i class="fa <?php echo $lb[1]; ?>"></i> <?php echo $lb[0]; ?></label>

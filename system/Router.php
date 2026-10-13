@@ -155,6 +155,14 @@ class Router
 			}
 		}
 
+		// [GENC-13OKT26] halaman mesin AWAL yang sudah dihapus permanen lewat Mesin & Unit -> 404. Route Approval / NOK History
+		// yang menumpang di palletmover tetap jalan. Daftar = halaman di genc_reg_builtin_folders_def() (cek cepat tanpa DB).
+		if (in_array($page, array('palletmover', 'forklift', 'agv_table_top_lift', 'counterbalance', 'kir3p01dp001', 'kir6p01dp001', 'kir7p01dp001', 'mesin_geprek', 'conveyor'), true)
+			&& !($page === 'palletmover' && in_array($action, array('approval', 'uncompleted'), true))) {
+			require_once ROOT . 'app/views/partials/_shared/genc_registry.php';
+			if (function_exists('genc_reg_is_deleted_page') && genc_reg_is_deleted_page($page)) { $this->page_not_found('Halaman mesin ini sudah dihapus permanen lewat menu Mesin &amp; Unit.'); }
+		}
+
 		if (class_exists($controller_name, true)) {
 			// Set Router Page Variables. They can be accessed by calling Router::$page_variable_name
 			self::$page_name = $page;

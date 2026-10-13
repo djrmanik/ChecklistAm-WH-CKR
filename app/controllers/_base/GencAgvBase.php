@@ -52,7 +52,7 @@ abstract class GencAgvBase extends GencChecklistBase{
 			$units = checklist_machine_units(checklist_load_machine($pg['page']));
 			foreach($units as $slug => $u){
 				$tabs[] = array(
-					'label' => trim(preg_replace('/^AGV\s+/i', '', $u['label'])),
+					'label' => $u['label'],   // [GENC-08OKT26-P3] nama unit utuh (dulu tanpa awalan "AGV ")
 					'sub'   => '',
 					'page'  => $pg['page'],
 					'unit'  => $slug,

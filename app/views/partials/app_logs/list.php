@@ -4,14 +4,12 @@
  */
 require_once ROOT . 'app/views/partials/_shared/genc_helpers.php';
 $d = $this->view_data;
-$labels = array(
-    'userlogin' => array('Login', 'ok'), 'userlogin.failed' => array('Login gagal', 'nok'), 'userlogin.blocked' => array('Login diblokir', 'nok'), 'userlogout' => array('Keluar', ''),
-    'checklist.add' => array('Isi checklist', 'primary'), 'checklist.edit' => array('Ubah checklist', 'pr'), 'checklist.delete' => array('Hapus checklist', 'nok'), 'checklist.approve' => array('Approve', 'pending'),
-    'users.add' => array('Tambah user', 'primary'), 'users.edit' => array('Ubah user', 'pr'), 'users.delete' => array('Hapus user', 'nok'), 'users.register' => array('Daftar akun', 'primary'),
-    'roles.add' => array('Tambah role', 'primary'), 'roles.edit' => array('Ubah role', 'pr'), 'roles.delete' => array('Hapus role', 'nok'), 'permissions.save' => array('Ubah hak akses', 'pending'),
-    'master_select.add' => array('Tambah pilihan', 'primary'), 'master_select.edit' => array('Ubah pilihan', 'pr'), 'master_select.delete' => array('Hapus pilihan', 'nok'),
-);
-$base = array('jenis' => $d['kind'], 'q' => $d['q']);
+$labels = $d['labels'];   // [GENC-08OKT26-P3] satu sumber dengan export (App_logsController::logs_labels)
+$labels['app_logs.export'] = array('Export log', '');
+$fl = $d['f'];
+$base = array('jenis' => $d['kind'], 'q' => $d['q'], 'dari' => $fl['dari'], 'sampai' => $fl['sampai'], 'user' => $fl['user']);
+$base = array_filter($base, function ($v) { return $v !== ''; });
+$has_filter = $fl['dari'] !== '' || $fl['sampai'] !== '' || $fl['user'] !== '';
 ?>
 <?php echo genc_assets_css(); ?>
 <div class="genc genc-log">
@@ -20,24 +18,41 @@ $base = array('jenis' => $d['kind'], 'q' => $d['q']);
     <div class="genc-header">
         <div>
             <h1 class="genc-title">Log aktivitas</h1>
-            <p class="genc-subtitle">Siapa melakukan apa dan kapan: login, isi/ubah/hapus/approve checklist, perubahan user &amp; hak akses. Hanya bisa dibaca.</p>
+            <p class="genc-subtitle">Siapa melakukan apa dan kapan: login, isi/ubah/hapus/approve checklist, perubahan user, hak akses, mesin &amp; unit. Hanya bisa dibaca.</p>
+        </div>
+        <div class="genc-actions">
+            <div class="genc-menu" data-genc-menu>   <?php /* [GENC-08OKT26-P3] export mengikuti filter */ ?>
+                <button type="button" class="genc-btn" data-genc-menu-toggle aria-haspopup="true" aria-expanded="false"><i class="fa fa-download"></i> Export <i class="fa fa-angle-down"></i></button>
+                <div class="genc-menu__list genc-menu__list--right" role="menu">
+                    <div class="genc-menu__label"><?php echo genc_e($d['kinds'][$d['kind']][0]); ?> &middot; <?php echo (int) $d['total']; ?> catatan<?php echo $has_filter || $d['q'] !== '' ? ' (sesuai filter)' : ''; ?></div>
+                    <a class="genc-menu__item" role="menuitem" target="_blank" href="<?php echo genc_e(genc_url('app_logs', $base + array('format' => 'pdf'))); ?>"><i class="fa fa-file-pdf-o"></i><span>PDF<small>Ringkasan + daftar per jenis, siap cetak</small></span></a>
+                    <a class="genc-menu__item" role="menuitem" href="<?php echo genc_e(genc_url('app_logs', $base + array('format' => 'excel'))); ?>"><i class="fa fa-file-excel-o"></i><span>Excel<small>Sheet ringkasan + 1 sheet per jenis</small></span></a>
+                    <a class="genc-menu__item" role="menuitem" href="<?php echo genc_e(genc_url('app_logs', $base + array('format' => 'csv'))); ?>"><i class="fa fa-file-text-o"></i><span>CSV<small>1 tabel, untuk diolah</small></span></a>
+                </div>
+            </div>
         </div>
     </div>
-    <?php if ($d['last_old']): ?>
-    <div class="genc-notice genc-notice--info" style="margin-bottom:14px"><i class="fa fa-info-circle"></i><div>Pencatatan sempat berhenti setelah <b><?php echo genc_e(genc_date($d['last_old'], true)); ?></b> (entri lama bawaan phpRAD, jenis "Arsip phpRAD"). Mulai versi ini pencatatan berjalan lagi. Password tidak pernah ditampilkan.</div></div>
-    <?php endif; ?>
 
     <div class="genc-card">
         <form class="genc-toolbar" method="get" action="<?php print_link('app_logs'); ?>">
             <div class="genc-chips" style="flex-wrap:wrap">
                 <?php foreach ($d['kinds'] as $k => $v): ?>
-                    <a class="genc-chip<?php echo $d['kind'] === $k ? ' is-active' : ''; ?>" href="<?php echo genc_e(genc_url('app_logs', array('jenis' => $k, 'q' => $d['q']))); ?>"><?php echo genc_e($v[0]); ?><span class="genc-chip__count"><?php echo (int) $d['counts'][$k]; ?></span></a>
+                    <a class="genc-chip<?php echo $d['kind'] === $k ? ' is-active' : ''; ?>" href="<?php echo genc_e(genc_url('app_logs', array_merge($base, array('jenis' => $k)))); ?>"><?php echo genc_e($v[0]); ?><span class="genc-chip__count"><?php echo (int) $d['counts'][$k]; ?></span></a>
                 <?php endforeach; ?>
             </div>
             <span class="genc-grow"></span>
             <?php if ($d['kind'] !== ''): ?><input type="hidden" name="jenis" value="<?php echo genc_e($d['kind']); ?>"><?php endif; ?>
             <label class="genc-search"><i class="fa fa-search"></i><span class="sr-only">Cari</span>
                 <input class="genc-input" type="search" name="q" value="<?php echo genc_e($d['q']); ?>" placeholder="Cari mesin / user / kata"></label>
+            <div class="log-filter">   <?php /* [GENC-08OKT26-P3] tanggal & user */ ?>
+                <label><span>Dari</span><input class="genc-input" type="date" name="dari" value="<?php echo genc_e($fl['dari']); ?>"></label>
+                <label><span>Sampai</span><input class="genc-input" type="date" name="sampai" value="<?php echo genc_e($fl['sampai']); ?>"></label>
+                <label><span>User</span><select class="genc-select" name="user"><option value="">Semua user</option>
+                    <?php $ul = array(); foreach ($d['active_users'] as $uid) { if (isset($d['users'][$uid])) { $ul[$uid] = genc_person_name($d['users'][$uid]['username']); } } asort($ul); foreach ($ul as $uid => $un): ?><option value="<?php echo genc_e($uid); ?>"<?php echo $fl['user'] === (string) $uid ? ' selected' : ''; ?>><?php echo genc_e($un); ?></option><?php endforeach; ?>
+                </select></label>
+                <button type="submit" class="genc-btn genc-btn--sm"><i class="fa fa-filter"></i> Terapkan</button>
+                <?php if ($has_filter): ?><a class="genc-btn genc-btn--sm genc-btn--ghost" href="<?php echo genc_e(genc_url('app_logs', array_filter(array('jenis' => $d['kind'], 'q' => $d['q']), function ($v) { return $v !== ''; }))); ?>">Hapus filter</a><?php endif; ?>
+            </div>
         </form>
         <?php if (empty($d['rows'])): ?>
             <div class="genc-empty"><div class="genc-empty__icon"><i class="fa fa-history"></i></div><div class="genc-empty__title">Belum ada catatan</div>

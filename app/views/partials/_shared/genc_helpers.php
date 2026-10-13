@@ -12,7 +12,7 @@
 require_once __DIR__ . '/checklist_helpers.php'; // checklist_user_initial(), checklist_display_name(), checklist_nama_bulan()
 
 /** Versi aset - ganti angka ini kalau CSS/JS diubah, supaya browser tidak pakai cache lama. */
-if (!defined('GENC_ASSET_VERSION')) { define('GENC_ASSET_VERSION', '2026100603'); } // [GENC-06OKT26] Mesin & Unit, tab banyak, inisial, tanggal bisa diklik, isi bawaan + kunci (dulu 2026100602)
+if (!defined('GENC_ASSET_VERSION')) { define('GENC_ASSET_VERSION', '2026101302'); } // [GENC-13OKT26c] riwayat hapus permanen ringkas (dulu 2026101301) [GENC-13OKT26] riwayat ringkas + layar penuh, hapus permanen (dulu 2026100803) // [GENC-08OKT26-P3] paket 3 (dulu 2026100801) [GENC-08OKT26] kartu mesin lipat, mesin aktif/nonaktif, 80 ikon + cari (dulu 2026100701) [GENC-07OKT26-FOTO] banyak foto per item, kolase gambar bagian mesin (dulu 2026100603) [GENC-06OKT26] Mesin & Unit, tab banyak, inisial, tanggal bisa diklik, isi bawaan + kunci (dulu 2026100602)
 
 if (!function_exists('genc_e')) {
     function genc_e($v) { return htmlspecialchars((string) ($v === null ? '' : $v), ENT_QUOTES, 'UTF-8'); }
@@ -79,14 +79,50 @@ if (!function_exists('genc_person')) {
     }
 }
 
+/**
+ * [GENC-08OKT26-P3] Label tombol hasil cek (menu Master Select -> "Pilihan hasil cek").
+ * Kode yang disimpan ke database & dicetak di report TETAP OK / NOK / PR; yang bisa diganti hanya labelnya.
+ * Tabel genc_pilihan belum ada / kosong -> label awal (Baik / Tidak baik / Perawatan).
+ */
+if (!function_exists('genc_pilihan_default')) {
+    function genc_pilihan_default() {
+        return array('OK' => 'Baik', 'NOK' => 'Tidak baik', 'PR' => 'Perawatan');
+    }
+}
+if (!function_exists('genc_pilihan_labels')) {
+    function genc_pilihan_labels($reset = false) {
+        static $out = null;
+        if ($reset) { $out = null; }
+        if ($out !== null) { return $out; }
+        $out = genc_pilihan_default();
+        try {
+            if (!defined('DB_HOST') || !defined('DB_NAME')) { return $out; }
+            $pdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . (defined('DB_PORT') && DB_PORT !== '' ? ';port=' . DB_PORT : '') . ';charset=' . (defined('DB_CHARSET') && DB_CHARSET !== '' ? DB_CHARSET : 'utf8'),
+                DB_USERNAME, DB_PASSWORD, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC));
+            foreach ($pdo->query("SELECT kode, label FROM genc_pilihan")->fetchAll() as $r) {
+                $k = strtoupper((string) $r['kode']);
+                if (isset($out[$k]) && trim((string) $r['label']) !== '') { $out[$k] = trim((string) $r['label']); }
+            }
+        } catch (\Throwable $e) { }
+        return $out;
+    }
+}
+if (!function_exists('genc_pilihan_label')) {
+    function genc_pilihan_label($kode) {
+        $l = genc_pilihan_labels();
+        $k = strtoupper(trim((string) $kode));
+        return isset($l[$k]) ? $l[$k] : (string) $kode;
+    }
+}
+
 /** Label & gaya untuk nilai item. */
 if (!function_exists('genc_value_meta')) {
     function genc_value_meta($v) {
         $orig = trim((string) $v);
         $v = strtoupper($orig);
-        if ($v === 'OK')  { return array('key' => 'ok',  'label' => 'Baik',       'icon' => 'fa-check'); }
-        if ($v === 'NOK') { return array('key' => 'nok', 'label' => 'Tidak baik', 'icon' => 'fa-times'); }
-        if ($v === 'PR')  { return array('key' => 'pr',  'label' => 'Perawatan',  'icon' => 'fa-wrench'); }
+        if ($v === 'OK')  { return array('key' => 'ok',  'label' => genc_pilihan_label('OK'),  'icon' => 'fa-check'); }
+        if ($v === 'NOK') { return array('key' => 'nok', 'label' => genc_pilihan_label('NOK'), 'icon' => 'fa-times'); }
+        if ($v === 'PR')  { return array('key' => 'pr',  'label' => genc_pilihan_label('PR'),  'icon' => 'fa-wrench'); }
         // [GENC-24SEP26-DUMPING] isian teks bebas lama ditampilkan apa adanya (bukan huruf besar)
         return array('key' => '', 'label' => ($v === '' ? 'Belum diisi' : $orig), 'icon' => 'fa-question');
     }
@@ -205,6 +241,7 @@ if (!function_exists('genc_preview_items')) {
             foreach ($s['items'] as $it) {
                 $n++;
                 $foto = !empty($it['foto']) ? '<img src="' . genc_e(set_url($it['foto'])) . '" alt="" width="44" height="34">' : '<span class="gm-prev__nofoto" aria-hidden="true"><i class="fa fa-camera"></i></span>';
+                if (!empty($it['fotos']) && count($it['fotos']) > 1) { $foto = '<span class="gm-prev__ph">' . $foto . '<span class="gm-prev__n" title="' . count($it['fotos']) . ' foto">' . count($it['fotos']) . '</span></span>'; }   // [GENC-07OKT26-FOTO]
                 $html .= '<li><span class="gm-prev__no">' . (int) $it['no'] . '</span>' . $foto . '<span class="gm-prev__txt"><b>' . genc_e($it['part']) . '</b>'
                        . (!empty($it['standar']) ? '<small>' . genc_e($it['standar']) . '</small>' : '') . '</span></li>';
             }

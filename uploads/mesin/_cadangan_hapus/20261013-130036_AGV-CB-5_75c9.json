@@ -1,0 +1,15 @@
+{
+    "title": "AGV CB 5",
+    "kind": "unit",
+    "what": "Unit \"AGV CB 5\" dari mesin AGV (dibuat lewat menu)",
+    "folder": "agv",
+    "by": "djrmanik",
+    "at": "2026-10-13 13:00:36",
+    "checklist": 0,
+    "pdf": 0,
+    "foto": 0,
+    "excel": "data/AGV-CB-5-data-checklist.xlsx",
+    "builtin": false,
+    "zip": "20261013-130036_AGV-CB-5_75c9.zip",
+    "size": 6870
+}

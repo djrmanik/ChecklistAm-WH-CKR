@@ -70,8 +70,7 @@ class PalletmoverController extends GencChecklistBase{
 		$tabs = array();
 		foreach($this->palletmover_profiles() as $pf){
 			foreach(checklist_machine_units(checklist_load_machine($pf['profile'])) as $slug => $u){
-				$label = preg_replace('/^Pallet\s+Mover\s+/i', 'PM ', $u['label']);
-				$label = preg_replace('/^Pallet\s+Stacker$/i', 'Stacker', $label);
+				$label = $u['label'];   // [GENC-08OKT26-P3] nama unit utuh (dulu disingkat "PM N" / "Stacker")
 				$tabs[] = array('label' => $label, 'sub' => '', 'page' => 'palletmover', 'unit' => $slug, 'group' => $pf['group']);
 			}
 		}
@@ -202,7 +201,7 @@ class PalletmoverController extends GencChecklistBase{
 			foreach($rows as $r){ $sum['menunggu'] += $r['menunggu']; $sum['tindakan'] += $r['tindakan']; }
 			$tot['menunggu'] += $sum['menunggu'];
 			$tot['tindakan'] += $sum['tindakan'];
-			$groups[] = array('title' => $m['title'], 'rows' => $rows, 'sum' => $sum);
+			$groups[] = array('title' => $m['title'], 'icon' => isset($m['icon']) ? $m['icon'] : '', 'rows' => $rows, 'sum' => $sum);   // [GENC-08OKT26-HUB] + ikon
 		}
 		$data = array(
 			'mode'   => $mode,
@@ -238,6 +237,7 @@ class PalletmoverController extends GencChecklistBase{
 		$units = $ctl->genc_units();
 		if(empty($units)){
 			$n = $count($ctl->genc_month_rows($period['bulan'], $period['tahun']), $ctl->genc_items());
+			if(genc_reg_is_archived($page, '')){ return $out; }   // [GENC-08OKT26-P3] arsip: keluar dari ringkasan
 			if(genc_reg_is_inactive($page, '') && ($n['menunggu'] + $n['tindakan']) === 0){ return $out; }   // [GENC-06OKT26-MESIN] nonaktif & beres: tidak tampil
 			$out[] = array(
 				'label' => isset($tab_label['']) ? $tab_label[''] : $conf['title'],
@@ -253,6 +253,7 @@ class PalletmoverController extends GencChecklistBase{
 			$all = $ctl->genc_month_rows($period['bulan'], $period['tahun']);
 			$n = $count($ctl->genc_filter_unit($all, $slug), $ctl->genc_items());
 			if($other === null){ $other = $count($ctl->genc_filter_unit($all, self::UNIT_OTHER), $ctl->genc_items()); }
+			if(!empty($u['archived']) || genc_reg_is_archived($page, '')){ continue; }   // [GENC-08OKT26-P3] arsip: keluar dari ringkasan
 			if((!empty($u['inactive']) || genc_reg_is_inactive($page, '')) && ($n['menunggu'] + $n['tindakan']) === 0){ continue; }   // [GENC-06OKT26-MESIN] nonaktif & beres: tidak tampil
 			$out[] = array(
 				'label' => isset($tab_label[$slug]) ? $tab_label[$slug] : $u['label'],

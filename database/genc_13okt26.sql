@@ -1,0 +1,32 @@
+-- ============================================================================
+--  SESI 13 OKT 2026 - Riwayat ringkas (model penunjuk) + Hapus permanen dari Arsip   [GENC-13OKT26]
+--  Jalankan SEKALI di phpMyAdmin (database web_wh), SETELAH genc_8okt26_paket3.sql.
+--  Aman dijalankan 2x (IF NOT EXISTS). Tidak mengubah / menghapus data checklist.
+--  (Kalau lupa dijalankan, kolom ini dibuat otomatis saat menu Mesin & Unit dibuka.)
+--
+--  1. genc_versi.sekarang : penanda "versi sekarang". Kembalikan ke versi lain = penanda pindah,
+--                           TIDAK membuat versi baru (v1, v2, v3 bisa bolak-balik). Riwayat lama:
+--                           belum ada penanda = versi terbaru dianggap "sekarang".
+--  2. Hapus permanen tidak butuh tabel baru. Nilai `arsip` = 2 di genc_folder / genc_unit = mesin / unit
+--     AWAL yang sudah dihapus permanen (tidak tampil lagi; tabel & data aslinya tetap).
+--     File cadangan disimpan di uploads/cadangan_hapus/ (atau uploads/mesin/_cadangan_hapus/ kalau folder
+--     pertama tidak boleh ditulis server). Dibuat otomatis, dilindungi .htaccess.
+--
+--  BATALKAN (kembali seperti Paket 3; pakai bersama file aplikasi lama):
+--     ALTER TABLE `genc_versi` DROP COLUMN `sekarang`;
+--     -- Mesin / unit awal yang sudah dihapus permanen akan tampil lagi di ARSIP kode lama kalau:
+--     -- UPDATE `genc_folder` SET `arsip` = 1 WHERE `arsip` = 2;  UPDATE `genc_unit` SET `arsip` = 1 WHERE `arsip` = 2;
+-- ============================================================================
+
+ALTER TABLE `genc_versi` ADD COLUMN IF NOT EXISTS `sekarang` TINYINT(1) NOT NULL DEFAULT 0;
+
+-- ----------------------------------------------------------------------------
+--  OPSIONAL - merapikan riwayat yang dibuat SEBELUM update ini (Paket 3):
+--  dulu "Kembalikan", "Hapus (arsipkan)" & "Pulihkan dari arsip" ikut menjadi versi baru
+--  (mis. v4 "Pulihkan ... ke versi 2", v6 "Hapus (arsipkan) ..."). Isinya sama dengan versi lain,
+--  jadi aman dibuang. Hapus tanda -- di 3 baris bawah ini kalau mau dirapikan (nomor versi bisa
+--  jadi melompat, mis. v1 v2 v3 v7 - tidak masalah):
+-- DELETE FROM `genc_versi` WHERE `ringkasan` LIKE 'Pulihkan % ke versi %';
+-- DELETE FROM `genc_versi` WHERE `ringkasan` LIKE 'Hapus (arsipkan)%';
+-- DELETE FROM `genc_versi` WHERE `ringkasan` LIKE 'Pulihkan dari arsip%';
+-- ----------------------------------------------------------------------------

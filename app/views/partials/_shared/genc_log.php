@@ -16,6 +16,7 @@
 if (!function_exists('genc_app_log')) {
     function genc_app_log($action, $table, $record_id, $message, $data = array(), $user_id = null) {
         static $cols = null;
+        $GLOBALS['genc_last_log_msg'] = (string) $message;   // [GENC-08OKT26-P3] ringkasan untuk riwayat versi Mesin & Unit
         try {
             $db = new PDODb(DB_TYPE, DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME, DB_PORT, DB_CHARSET);
             if ($cols === null) {

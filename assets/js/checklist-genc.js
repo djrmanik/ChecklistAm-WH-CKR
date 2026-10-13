@@ -12,6 +12,8 @@
      form[data-genc-checklist] progress, keterangan wajib bila ada NOK/PR,
                                validasi sebelum kirim, peringatan keluar halaman
      .genc-toast               hilang sendiri setelah 6 detik
+     [data-genc-folds]         [GENC-08OKT26-HUB] kartu mesin lipat (Home, Approval, NOK History):
+                               awal tertutup, yang dibuka diingat per halaman (browser ini), Buka / Tutup semua
    ========================================================================= */
 (function () {
     'use strict';
@@ -21,6 +23,59 @@
         while (el && el.nodeType === 1) { if (el.matches ? el.matches(sel) : el.msMatchesSelector(sel)) { return el; } el = el.parentNode; }
         return null;
     }
+
+    /* ------------------------------------------------------------ kartu lipat  [GENC-08OKT26-HUB] */
+    $all('[data-genc-folds]').forEach(function (wrap) {
+        var key = 'genc-fold:' + wrap.getAttribute('data-genc-folds');
+        var cards = $all('[data-genc-fold]', wrap);
+        var all = document.querySelector('[data-genc-fold-all="' + wrap.getAttribute('data-genc-folds') + '"]');
+        var open = [];
+        try { open = JSON.parse(window.localStorage.getItem(key) || '[]') || []; } catch (e) { open = []; }
+        function set(card, on) {
+            card.classList.toggle('is-closed', !on);
+            var b = card.querySelector('[data-genc-fold-btn]');
+            if (b) { b.setAttribute('aria-expanded', on ? 'true' : 'false'); }
+        }
+        function save() {
+            var ids = cards.filter(function (c) { return !c.classList.contains('is-closed'); }).map(function (c) { return c.getAttribute('data-genc-fold'); });
+            try { window.localStorage.setItem(key, JSON.stringify(ids)); } catch (e) { /* mode privat: tidak diingat */ }
+            if (all) {
+                var any = cards.some(function (c) { return c.classList.contains('is-closed'); });
+                all.querySelector('span').textContent = any ? 'Buka semua' : 'Tutup semua';
+                all.querySelector('i').className = 'fa ' + (any ? 'fa-expand' : 'fa-compress');
+            }
+        }
+        cards.forEach(function (c) {
+            set(c, open.indexOf(c.getAttribute('data-genc-fold')) !== -1);
+            var b = c.querySelector('[data-genc-fold-btn]');
+            if (b) { b.addEventListener('click', function () { set(c, c.classList.contains('is-closed')); save(); }); }
+        });
+        if (all && cards.length) {
+            all.hidden = false;
+            all.addEventListener('click', function () {
+                var any = cards.some(function (c) { return c.classList.contains('is-closed'); });
+                cards.forEach(function (c) { set(c, any); });
+                save();
+            });
+        }
+        save();
+        /* [GENC-08OKT26-P3] nama mesin ditulis lengkap (bisa 2 baris): judul kartu dalam 1 baris grid disamakan tingginya,
+           supaya kartu tertutup tetap sama besar */
+        function even() {
+            var heads = cards.map(function (c) { return c.querySelector('[data-genc-fold-btn]'); }).filter(Boolean);
+            heads.forEach(function (h) { h.style.minHeight = ''; });
+            var rows = {};
+            heads.forEach(function (h) { var t = Math.round(h.getBoundingClientRect().top); (rows[t] = rows[t] || []).push(h); });
+            Object.keys(rows).forEach(function (t) {
+                var r = rows[t]; if (r.length < 2) { return; }
+                var max = Math.max.apply(null, r.map(function (h) { return h.offsetHeight; }));
+                r.forEach(function (h) { if (h.offsetHeight < max) { h.style.minHeight = max + 'px'; } });
+            });
+        }
+        var evenT = null;
+        even();
+        window.addEventListener('resize', function () { clearTimeout(evenT); evenT = setTimeout(even, 120); });
+    });
 
     /* ------------------------------------------------------------ dropdown */
     document.addEventListener('click', function (e) {
@@ -128,13 +183,34 @@
         e.preventDefault();
         var d = document.createElement('dialog');
         d.className = 'genc-dialog genc-lightbox';
-        d.innerHTML = '<img alt=""><div class="genc-lightbox__cap"><span></span><button type="button" class="genc-btn genc-btn--sm">Tutup</button></div>';
+        d.innerHTML = '<img alt=""><div class="genc-lightbox__cap"><span></span><button type="button" class="genc-btn genc-btn--sm" data-lb-close>Tutup</button></div>';
         d.querySelector('img').src = t.getAttribute('data-genc-lightbox');
         d.querySelector('img').alt = t.getAttribute('data-genc-caption') || '';
         d.querySelector('span').textContent = t.getAttribute('data-genc-caption') || '';
+        /* [GENC-07OKT26-FOTO] [data-genc-gallery]='["url",...]' -> beberapa foto 1 item: tombol < >, panah keyboard, geser di HP */
+        var gal = [];
+        try { gal = JSON.parse(t.getAttribute('data-genc-gallery') || '[]'); } catch (x) { gal = []; }
+        if (gal.length > 1) {
+            var gi = 0, cap = t.getAttribute('data-genc-caption') || '';
+            var nav = document.createElement('div'); nav.className = 'genc-lightbox__nav';
+            nav.innerHTML = '<button type="button" class="genc-lightbox__btn" data-lb="-1" aria-label="Foto sebelumnya"><i class="fa fa-chevron-left"></i></button><b></b><button type="button" class="genc-lightbox__btn" data-lb="1" aria-label="Foto berikutnya"><i class="fa fa-chevron-right"></i></button>';
+            d.insertBefore(nav, d.querySelector('.genc-lightbox__cap'));
+            var show = function (i) {
+                gi = (i + gal.length) % gal.length;
+                d.querySelector('img').src = gal[gi];
+                nav.querySelector('b').textContent = (gi + 1) + ' / ' + gal.length;
+                d.querySelector('.genc-lightbox__cap span').textContent = cap;
+            };
+            nav.addEventListener('click', function (ev) { var b = closest(ev.target, '[data-lb]'); if (b) { ev.stopPropagation(); show(gi + parseInt(b.getAttribute('data-lb'), 10)); } });
+            d.addEventListener('keydown', function (ev) { if (ev.key === 'ArrowLeft') { show(gi - 1); } if (ev.key === 'ArrowRight') { show(gi + 1); } });
+            var sx = null;
+            d.addEventListener('touchstart', function (ev) { sx = ev.touches[0].clientX; }, { passive: true });
+            d.addEventListener('touchend', function (ev) { if (sx === null) { return; } var dx = ev.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) { show(gi + (dx < 0 ? 1 : -1)); } sx = null; });
+            show(0);
+        }
         document.body.appendChild(d);
         if (typeof d.showModal !== 'function') { window.open(t.getAttribute('data-genc-lightbox'), '_blank'); d.remove(); return; }
-        d.addEventListener('click', function (ev) { if (ev.target === d || ev.target.tagName === 'BUTTON') { d.close(); } });
+        d.addEventListener('click', function (ev) { if (ev.target === d || closest(ev.target, '[data-lb-close]')) { d.close(); } });
         d.addEventListener('close', function () { d.remove(); });
         d.showModal();
     });

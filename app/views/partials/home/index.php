@@ -17,11 +17,11 @@ $salam = $h < 11 ? 'Selamat pagi' : ($h < 15 ? 'Selamat siang' : ($h < 18 ? 'Sel
 
 $tot = array('units' => 0, 'done' => 0, 'issue' => 0, 'menunggu' => 0, 'tindakan' => 0, 'filled' => 0, 'elapsed' => 0);
 foreach ($groups as $gi => $g) {
-    $gd = 0; $gf = 0; $ge = 0; $gm = 0; $gt = 0;
+    $gd = 0; $gf = 0; $ge = 0; $gm = 0; $gt = 0; $gi_issue = 0;
     foreach ($g['rows'] as $r) {
         $tot['units']++;
         if ($r['state'] !== 'none') { $tot['done']++; $gd++; }
-        if ($r['state'] === 'issue') { $tot['issue']++; }
+        if ($r['state'] === 'issue') { $tot['issue']++; $gi_issue++; }
         $tot['menunggu'] += $r['menunggu']; $tot['tindakan'] += $r['tindakan'];
         $gf += $r['filled']; $ge += $r['elapsed']; $gm += $r['menunggu']; $gt += $r['tindakan'];
     }
@@ -30,11 +30,17 @@ foreach ($groups as $gi => $g) {
     $groups[$gi]['pct']  = $ge > 0 ? (int) round($gf * 100 / $ge) : 0;
     $groups[$gi]['menunggu'] = $gm;
     $groups[$gi]['tindakan'] = $gt;
+    $groups[$gi]['issue'] = $gi_issue;
+    $groups[$gi]['filled'] = $gf;
+    $groups[$gi]['elapsed'] = $ge;
 }
 $belum   = $tot['units'] - $tot['done'];
 $pct_day = $tot['units'] > 0 ? (int) round($tot['done'] * 100 / $tot['units']) : 0;
 $pct_mon = $tot['elapsed'] > 0 ? (int) round($tot['filled'] * 100 / $tot['elapsed']) : 0;
 $pct_cls = function ($p) { return $p >= 90 ? 'ok' : ($p >= 60 ? 'pr' : 'nok'); };
+// [GENC-08OKT26-P3] "Kelengkapan isi": checklist harian terisi / seharusnya (unit x hari yang sudah lewat bulan ini)
+$mon_days = ($tot['units'] > 0 && $tot['elapsed'] % $tot['units'] === 0) ? (int) ($tot['elapsed'] / $tot['units']) : 0;
+$mon_rumus = $mon_days > 0 ? ' (' . $tot['units'] . ' unit &times; ' . $mon_days . ' hari)' : '';
 ?>
 <?php echo genc_assets_css(); ?>
 <div class="genc">
@@ -68,11 +74,12 @@ $pct_cls = function ($p) { return $p >= 90 ? 'ok' : ($p >= 60 ? 'pr' : 'nok'); }
             <div class="genc-meter genc-dash__meter" aria-hidden="true"><span style="width:<?php echo $pct_day; ?>%"></span></div>
             <div class="genc-kpi__hint"><?php echo $belum > 0 ? '<b>' . $belum . ' unit</b> belum diisi' : 'Semua unit sudah diisi &#127881;'; ?></div>
         </div>
-        <div class="genc-card genc-kpi">
+        <?php $nok_tag = $d['can_nok'] ? 'a' : 'div';   /* [GENC-08OKT26-P3] klik -> NOK History */ ?>
+        <<?php echo $nok_tag; ?> class="genc-card genc-kpi<?php echo $d['can_nok'] ? ' genc-kpi--link' : ''; ?>"<?php echo $d['can_nok'] ? ' href="' . genc_e(set_url('palletmover/uncompleted')) . '"' : ''; ?>>
             <div class="genc-kpi__label"><i class="fa fa-exclamation-circle"></i> Temuan hari ini</div>
             <div class="genc-kpi__value<?php echo $tot['issue'] ? ' genc-dash__v--nok' : ''; ?>"><?php echo $tot['issue']; ?> <small>unit</small></div>
-            <div class="genc-kpi__hint"><?php echo $tot['issue'] ? 'Ada item Tidak baik / Perawatan' : 'Tidak ada item bermasalah'; ?></div>
-        </div>
+            <div class="genc-kpi__hint"><?php echo $tot['issue'] ? 'Ada item ' . genc_e(genc_pilihan_label('NOK') . ' / ' . genc_pilihan_label('PR')) : 'Tidak ada item bermasalah'; ?><?php echo $d['can_nok'] ? ' &middot; klik untuk NOK History' : ''; ?></div>
+        </<?php echo $nok_tag; ?>>
         <?php $wait_tag = $d['can_approval'] ? 'a' : 'div'; ?>
         <<?php echo $wait_tag; ?> class="genc-card genc-kpi<?php echo $d['can_approval'] ? ' genc-kpi--link' : ''; ?>"<?php echo $d['can_approval'] ? ' href="' . genc_e(set_url('palletmover/approval')) . '"' : ''; ?>>
             <div class="genc-kpi__label"><i class="fa fa-clock-o"></i> Menunggu approval</div>
@@ -80,9 +87,10 @@ $pct_cls = function ($p) { return $p >= 90 ? 'ok' : ($p >= 60 ? 'pr' : 'nok'); }
             <div class="genc-kpi__hint"><?php echo genc_e($period['label']); ?><?php echo $d['can_approval'] ? ' &middot; klik untuk approve' : ''; ?></div>
         </<?php echo $wait_tag; ?>>
         <div class="genc-card genc-kpi">
-            <div class="genc-kpi__label"><i class="fa fa-line-chart"></i> Kepatuhan isi bulan ini</div>
+            <div class="genc-kpi__label"><i class="fa fa-line-chart"></i> Kelengkapan isi bulan ini
+                <span class="genc-kpi__info" tabindex="0" role="img" aria-label="Penjelasan" title="Setiap unit aktif seharusnya diisi 1 checklist per hari. Persentase = checklist harian yang sudah diisi dibagi yang seharusnya, dari tanggal 1 sampai hari ini (<?php echo genc_e($period['label']); ?>)."><i class="fa fa-info-circle" aria-hidden="true"></i></span></div>
             <div class="genc-kpi__value genc-dash__v--<?php echo $pct_cls($pct_mon); ?>"><?php echo $pct_mon; ?>%</div>
-            <div class="genc-kpi__hint"><?php echo $tot['filled']; ?> dari <?php echo $tot['elapsed']; ?> hari-unit terisi &middot; <?php echo (int) $tot['tindakan']; ?> perlu tindakan</div>
+            <div class="genc-kpi__hint"><?php echo $tot['filled']; ?> dari <?php echo $tot['elapsed']; ?> checklist harian sudah diisi<?php echo $mon_rumus; ?> &middot; <?php echo (int) $tot['tindakan']; ?> perlu tindakan</div>
         </div>
     </div>
 
@@ -93,16 +101,24 @@ $pct_cls = function ($p) { return $p >= 90 ? 'ok' : ($p >= 60 ? 'pr' : 'nok'); }
             <span><i class="genc-dash__dot genc-dash__dot--issue"></i> Ada temuan</span>
             <span><i class="genc-dash__dot genc-dash__dot--none"></i> Belum diisi</span>
         </div>
+        <button type="button" class="genc-btn genc-btn--sm genc-btn--ghost genc-fold__all" data-genc-fold-all="home" hidden><i class="fa fa-expand"></i> <span>Buka semua</span></button>
     </div>
 
-    <div class="genc-hub genc-dash">
+    <?php /* [GENC-08OKT26-HUB] kartu mesin sama besar: daftar unit tertutup (ringkasan titik status), klik judul untuk buka / tutup */ ?>
+    <div class="genc-hub genc-dash" data-genc-folds="home">
     <?php foreach ($groups as $g):
-        $n = count($g['rows']); ?>
-        <section class="genc-card genc-hub__card">
-            <div class="genc-card__head">
-                <h3 class="genc-card__title"><i class="fa <?php echo $g['icon']; ?> genc-dash__ico"></i> <?php echo genc_e($g['title']); ?></h3>
+        $n = count($g['rows']); $fid = 'home-' . substr(md5($g['title']), 0, 8); ?>
+        <section class="genc-card genc-hub__card genc-fold" data-genc-fold="<?php echo $fid; ?>">
+            <button type="button" class="genc-card__head genc-fold__head" aria-expanded="true" aria-controls="<?php echo $fid; ?>" data-genc-fold-btn>
+                <span class="genc-card__title"><i class="fa <?php echo genc_e($g['icon']); ?> genc-dash__ico"></i> <span class="genc-fold__name" title="<?php echo genc_e($g['title']); ?>"><?php echo genc_e($g['title']); ?></span></span>
                 <span class="genc-dash__count<?php echo $g['done'] === $n ? ' is-done' : ''; ?>"><?php echo $g['done']; ?>/<?php echo $n; ?> diisi</span>
+                <i class="fa fa-chevron-down genc-fold__chev" aria-hidden="true"></i>
+            </button>
+            <div class="genc-fold__sum" aria-hidden="true">
+                <span class="genc-fold__dots"><?php foreach ($g['rows'] as $r): ?><i class="genc-dash__dot genc-dash__dot--<?php echo $r['state']; ?>" title="<?php echo genc_e($r['label']); ?>"></i><?php endforeach; ?></span>
+                <span class="genc-fold__txt"><?php echo $n; ?> unit<?php echo $g['issue'] ? ' &middot; <b class="genc-dash__v--nok">' . $g['issue'] . ' ada temuan</b>' : ''; ?><?php echo ($n - $g['done']) > 0 ? ' &middot; ' . ($n - $g['done']) . ' belum diisi' : ''; ?></span>
             </div>
+            <div class="genc-fold__body" id="<?php echo $fid; ?>">
             <?php $last_group = null; foreach ($g['rows'] as $r):
                 if ($r['group'] !== '' && $r['group'] !== $last_group): $last_group = $r['group']; ?>
                 <div class="genc-hub__group"><?php echo genc_e($r['group']); ?></div>
@@ -129,8 +145,9 @@ $pct_cls = function ($p) { return $p >= 90 ? 'ok' : ($p >= 60 ? 'pr' : 'nok'); }
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>
+            </div>
             <div class="genc-dash__foot">
-                <span title="Hari terisi bulan ini">Isi bulan ini <b class="genc-dash__v--<?php echo $pct_cls($g['pct']); ?>"><?php echo $g['pct']; ?>%</b></span>
+                <span title="<?php echo (int) $g['filled']; ?> dari <?php echo (int) $g['elapsed']; ?> checklist harian bulan ini sudah diisi">Kelengkapan <b class="genc-dash__v--<?php echo $pct_cls($g['pct']); ?>"><?php echo $g['pct']; ?>%</b></span>
                 <?php if ($g['menunggu']): ?><span class="genc-badge genc-badge--pending"><?php echo $g['menunggu']; ?> menunggu</span><?php endif; ?>
                 <?php if ($g['tindakan']): ?><span class="genc-badge genc-badge--nok"><?php echo $g['tindakan']; ?> temuan</span><?php endif; ?>
             </div>
@@ -144,3 +161,4 @@ $pct_cls = function ($p) { return $p >= 90 ? 'ok' : ($p >= 60 ? 'pr' : 'nok'); }
 <?php endif; ?>
 </div>
 </div>
+<?php echo genc_assets_js(); ?>

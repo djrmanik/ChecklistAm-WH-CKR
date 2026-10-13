@@ -188,6 +188,9 @@ class BaseController{
 		$get = filter_var_array($get, FILTER_SANITIZE_STRING);
 		if(!empty($get)){
 			foreach($get as $obj => $val){
+				// [GENC-13OKT26-AUDIT] ?q[]=1 (alamat yang diutak-atik) -> diabaikan. Tidak ada halaman yang memakai
+				// parameter GET berbentuk daftar; dulu memunculkan "Warning: Array to string conversion" di 30 halaman.
+				if(is_array($val)){ continue; }
 				$this->request->$obj = $val; //pass each request data to the current page request property
 			}
 		}

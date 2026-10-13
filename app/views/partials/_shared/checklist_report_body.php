@@ -41,6 +41,7 @@
  */
 
 require_once __DIR__ . '/checklist_helpers.php';
+require_once __DIR__ . '/checklist_report_plan.php';   // [GENC-07OKT26-FOTO] rencana halaman + kolase foto
 
 if (!function_exists('checklist_day_cell')) {
     /**
@@ -144,6 +145,12 @@ $HEAD = $B . ' padding:2px 3px; font-weight:bold; vertical-align:middle;';
 // bug lama yang sudah pernah kejadian).
 $GLOBALS['checklist_body_ke'] = isset($GLOBALS['checklist_body_ke']) ? $GLOBALS['checklist_body_ke'] + 1 : 1;
 $IS_HALAMAN_PERTAMA = ($GLOBALS['checklist_body_ke'] === 1);
+
+// [GENC-07OKT26-FOTO] Rencana halaman (checklist_report_plan.php): bagian -> potongan per halaman,
+// gambar panel / kolase foto otomatis, tinggi baris. Muat 1 halaman & tanpa kolase = markup lama persis.
+if (!isset($data['format'])) { $data['format'] = isset($checklist_format) ? $checklist_format : 'print'; }
+$PAGES = checklist_rpt_plan($data);
+$PAGE_N = count($PAGES);
 ?>
 <?php if ($IS_HALAMAN_PERTAMA): ?>
 <style>
@@ -163,6 +170,10 @@ $IS_HALAMAN_PERTAMA = ($GLOBALS['checklist_body_ke'] === 1);
 <?php endif; ?>
 <?php endif; /* $IS_HALAMAN_PERTAMA */ ?>
 <div<?php echo $IS_HALAMAN_PERTAMA ? ' id="page-report-body"' : ''; ?> style="font-family: Arial, Helvetica, sans-serif; font-size:8px; color:#111; line-height:1.2;">
+<?php foreach ($PAGES as $PI => $PG): ?>
+<?php if ($PAGE_N > 1): /* [GENC-07OKT26-FOTO] report lebih dari 1 halaman: pembungkus per halaman (page-break di div pembungkus, aturan dompdf) */ ?>
+<div<?php echo ($PI < $PAGE_N - 1) ? ' style="page-break-after:always;"' : ''; ?>>
+<?php endif; ?>
 
     <!-- ================= KOP ================= -->
     <table cellpadding="0" cellspacing="0" style="width:100%; border-collapse:collapse; table-layout:fixed;">
@@ -198,7 +209,7 @@ $IS_HALAMAN_PERTAMA = ($GLOBALS['checklist_body_ke'] === 1);
             <td style="<?php echo $HEAD; ?> width:17%; font-size:9px;">Area: <?php echo checklist_e(isset($data['area']) ? $data['area'] : ''); ?></td>
             <td style="<?php echo $HEAD; ?> width:9%; font-size:9px;">Mesin/Line</td>
             <td align="center" style="<?php echo $HEAD; ?> width:27%; text-align:center; font-size:9px;"><?php echo checklist_e(isset($data['nama_mesin']) ? $data['nama_mesin'] : ''); ?></td>
-            <td align="center" style="<?php echo $HEAD; ?> width:32%; text-align:center; font-size:9px; font-style:italic;">Saya Pakai Saya Rawat</td>
+            <td align="center" style="<?php echo $HEAD; ?> width:32%; text-align:center; font-size:9px; font-style:italic;">Saya Pakai Saya Rawat<?php if ($PAGE_N > 1): ?><span style="font-style:normal; font-weight:normal;"> - Hal. <?php echo $PI + 1; ?>/<?php echo $PAGE_N; ?></span><?php endif; ?></td>
             <td align="center" style="<?php echo $HEAD; ?> width:6%; text-align:center; font-size:8px;">Bulan/Tahun</td>
             <td align="center" style="<?php echo $CELL; ?> width:9%; text-align:center; font-size:9px;"><?php echo checklist_e(isset($data['bulan_tahun']) ? $data['bulan_tahun'] : ''); ?></td>
         </tr>
@@ -210,17 +221,17 @@ $IS_HALAMAN_PERTAMA = ($GLOBALS['checklist_body_ke'] === 1);
             <col style="width:15%;">
             <col style="width:85%;">
         </colgroup>
-        <?php foreach ($SECTIONS as $section):
-            $photo_key   = isset($section['photo']) ? $section['photo'] : '';
-            $photo       = ($photo_key !== '' && !empty($IMAGES[$photo_key])) ? $IMAGES[$photo_key] : '';
-            // Ukuran foto dicari per key dulu (23 Sep 2026: geprek punya 3 foto
-            // 'atas' / 'tengah' / 'bawah', satu per section). Key yang tidak
-            // terdaftar di img_size jatuh ke perilaku lama: 'atas' -> ukuran
-            // atas, selain itu -> ukuran bawah. Mesin lama tidak berubah.
-            $size        = ($photo_key === 'atas') ? $IMG_ATAS : $sz($photo_key, $IMG_BAWAH['w'], $IMG_BAWAH['h']);
-            $photo_label = isset($section['photo_label']) ? $section['photo_label'] : '';
-            $blank_rows  = isset($section['blank_rows']) ? (int) $section['blank_rows'] : 0;
-            $items       = isset($section['items']) ? $section['items'] : array();
+        <?php foreach ($PG['chunks'] as $CH):
+            $section     = $CH['section'];
+            // Gambar & ukurannya dari rencana halaman (checklist_report_plan.php):
+            // panel = gambar profil apa adanya (23 Sep 2026: 'atas' / 'tengah' / 'bawah', satu per section),
+            // kolase = foto item bernomor yang digabung otomatis [GENC-07OKT26-FOTO].
+            $photo       = $CH['photo'];
+            $size        = array('w' => $CH['photo_w'], 'h' => $CH['photo_h']);
+            $photo_label = $CH['photo_label'];
+            $blank_rows  = (int) $CH['blank_rows'];
+            $items       = $CH['items'];
+            $ROW_H       = $CH['row_h'];
         ?>
         <tr>
             <td style="<?php echo $B; ?> border-top:none; width:15%; padding:0; vertical-align:top;">
@@ -231,6 +242,15 @@ $IS_HALAMAN_PERTAMA = ($GLOBALS['checklist_body_ke'] === 1);
                     <?php endif; ?>
                     <?php if ($photo !== ''): ?>
                     <tr><td align="center" style="width:100%; text-align:center; vertical-align:top; padding:2px 0;"><img src="<?php echo checklist_e($photo); ?>" width="<?php echo $size['w']; ?>" height="<?php echo $size['h']; ?>" style="width:<?php echo $size['w']; ?>px; height:<?php echo $size['h']; ?>px;"></td></tr>
+                    <?php elseif (!empty($CH['tiles_fb'])): /* cadangan kalau kolase tidak bisa dibuat (GD / folder uploads): foto satu per sel, nomor di sel sendiri */
+                        $FB = $CH['tiles_fb']; $fbw = $FB['grid']['tw']; $fbh = $FB['grid']['th']; ?>
+                    <?php foreach (array_chunk($FB['tiles'], max(1, (int) $FB['grid']['c'])) as $fbrow): ?>
+                    <tr><td align="center" style="width:100%; text-align:center; padding:1px 0;"><table cellpadding="0" cellspacing="0" style="border-collapse:collapse; margin:0 auto;"><tr>
+                        <?php foreach ($fbrow as $t): ?><td align="center" style="font-size:7px; font-weight:bold; text-align:center; padding:0 2px;"><?php echo (int) $t['no']; ?></td><?php endforeach; ?>
+                    </tr><tr>
+                        <?php foreach ($fbrow as $t): ?><td align="center" style="padding:0 2px;"><img src="<?php echo checklist_e($t['src']); ?>" width="<?php echo $fbw; ?>" height="<?php echo $fbh; ?>" style="width:<?php echo $fbw; ?>px; height:<?php echo $fbh; ?>px;"></td><?php endforeach; ?>
+                    </tr></table></td></tr>
+                    <?php endforeach; ?>
                     <?php endif; ?>
                 </table>
             </td>
@@ -250,7 +270,7 @@ $IS_HALAMAN_PERTAMA = ($GLOBALS['checklist_body_ke'] === 1);
                     </colgroup>
                     <tr>
                         <td colspan="<?php echo $colSpan; ?>" align="center" style="background:#000; color:#fff; font-weight:bold; font-size:10.5px; padding:2px; border:1px solid #000; text-align:center;">
-                            <?php echo checklist_e(isset($section['title']) ? $section['title'] : ''); ?>
+                            <?php echo checklist_e($CH['title']); ?>
                         </td>
                     </tr>
                     <tr>
@@ -266,7 +286,7 @@ $IS_HALAMAN_PERTAMA = ($GLOBALS['checklist_body_ke'] === 1);
                         <?php endfor; ?>
                     </tr>
 
-                    <?php foreach ($items as $item):
+                    <?php foreach ($items as $II => $item):
                         // Kolom statis yang belum diisi (menunggu template UI dari SPV)
                         // sengaja dibiarkan string kosong -> sel-nya kosong, siap ditulis
                         // tangan / diisi belakangan, bukan diisi tebakan.
@@ -275,9 +295,10 @@ $IS_HALAMAN_PERTAMA = ($GLOBALS['checklist_body_ke'] === 1);
                         $i_std    = isset($item['standar']) ? $item['standar'] : '';
                         $i_durasi = isset($item['durasi'])  ? trim((string) $item['durasi']) : '';
                         $i_plk    = isset($item['pelaksanaan']) ? $item['pelaksanaan'] : $PELAKSANAAN_DEFAULT;
+                        $i_h      = !empty($ROW_H[$II]) ? ' height:' . (int) $ROW_H[$II] . 'px;' : '';   // [GENC-07OKT26-FOTO] baris ikut tinggi kolase
                     ?>
                     <tr>
-                        <td align="center" style="<?php echo $CELL; ?> width:<?php echo $W_NO; ?>%; text-align:center; padding:2px 1px;"><?php echo checklist_e($item['no']); ?></td>
+                        <td align="center" style="<?php echo $CELL; ?> width:<?php echo $W_NO; ?>%; text-align:center; padding:2px 1px;<?php echo $i_h; ?>"><?php echo checklist_e($item['no']); ?></td>
                         <td style="<?php echo $CELL; ?> width:<?php echo $W_PART; ?>%;"><?php echo checklist_e($item['part']); ?></td>
                         <td style="<?php echo $CELL; ?> width:<?php echo $W_ALAT; ?>%;"><?php echo checklist_e($i_alat); ?></td>
                         <td style="<?php echo $CELL; ?> width:<?php echo $W_METODE; ?>%;"><?php echo checklist_e($i_metode); ?></td>
@@ -310,25 +331,31 @@ $IS_HALAMAN_PERTAMA = ($GLOBALS['checklist_body_ke'] === 1);
                     </tr>
                     <?php endfor; ?>
 
+                    <?php if ($CH['paraf']): /* potongan bagian yang belum selesai (- LANJUTAN di halaman berikut) belum diberi baris paraf */ ?>
                     <tr>
                         <td colspan="7" align="center" style="<?php echo $HEAD; ?> text-align:center;">Paraf Pelaksana</td>
                         <?php for ($d = 1; $d <= $day_count; $d++) {
                             // Section tanpa item (mis. Lubricating) -> paraf dibiarkan kosong
-                            $txt = empty($items) ? '' : checklist_user_initial(isset($pelaksana[$d]) ? $pelaksana[$d] : '');
+                            $txt = !$CH['paraf_ok'] ? '' : checklist_user_initial(isset($pelaksana[$d]) ? $pelaksana[$d] : '');
                             echo checklist_initial_cell($txt, $W_DAY);
                         } ?>
                     </tr>
                     <tr>
                         <td colspan="7" align="center" style="<?php echo $HEAD; ?> text-align:center;">Paraf Spv / Fasilitator</td>
                         <?php for ($d = 1; $d <= $day_count; $d++) {
-                            $txt = empty($items) ? '' : checklist_approver_initial(isset($approver[$d]) ? $approver[$d] : '');
+                            $txt = !$CH['paraf_ok'] ? '' : checklist_approver_initial(isset($approver[$d]) ? $approver[$d] : '');
                             echo checklist_initial_cell($txt, $W_DAY);
                         } ?>
                     </tr>
+                    <?php endif; ?>
                 </table>
             </td>
         </tr>
         <?php endforeach; ?>
     </table>
+<?php if ($PAGE_N > 1): ?>
+</div>
+<?php endif; ?>
+<?php endforeach; ?>
 
 </div>

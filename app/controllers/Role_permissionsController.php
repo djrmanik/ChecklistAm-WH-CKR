@@ -47,7 +47,7 @@ class Role_permissionsController extends SecureController{
 		foreach((array) $db->rawQuery("SELECT page_name, action_name FROM role_permissions WHERE role_id = ?", array($role_id)) as $r){
 			$have[strtolower($r['page_name']) . '/' . strtolower($r['action_name'])] = 1;
 		}
-		$sections = array(); $scope = array(); $known_pages = array(); $taken = array();
+		$sections = array(); $scope = array(); $known_pages = array(); $taken = array(); $hidden = 0;
 		foreach(genc_perm_catalog() as $sec){
 			foreach($sec['rows'] as $row){ foreach($row['actions'] as $a){ $taken[$row['page'] . '/' . $a] = 1; } $known_pages[$row['page']] = 1; }
 		}
@@ -55,27 +55,24 @@ class Role_permissionsController extends SecureController{
 			$rows = array();
 			foreach($sec['rows'] as $row){
 				foreach($row['actions'] as $a){ $scope[$row['page'] . '/' . $a] = 1; }
+				// [GENC-08OKT26-P3] "aksi lain" sisa phpRAD (approvalbtn, editfield, view lama, ...) DISEMBUNYIKAN: tidak tampil &
+				// tidak masuk scope -> menyimpan matriks tidak pernah menghapus baris itu (tetap tersimpan di role_permissions)
 				$row['extras'] = array();
 				if(empty($row['single']) && isset($all[$row['page']])){
 					foreach(array_keys($all[$row['page']]) as $a){
-						if(!isset($taken[$row['page'] . '/' . $a])){ $row['extras'][] = $a; $scope[$row['page'] . '/' . $a] = 1; }
+						if(!isset($taken[$row['page'] . '/' . $a]) && isset($have[$row['page'] . '/' . $a])){ $hidden++; }
 					}
-					sort($row['extras']);
 				}
 				$rows[] = $row;
 			}
 			$sections[] = array('title' => $sec['title'], 'rows' => $rows);
 		}
-		$other = array();
-		ksort($all);
+		// [GENC-08OKT26-P3] bagian "Lainnya (halaman lama / bawaan phpRAD)" disembunyikan (baris tetap tersimpan)
 		foreach($all as $page => $acts){
 			if(isset($known_pages[$page])){ continue; }
-			$a = array_keys($acts); sort($a);
-			foreach($a as $x){ $scope[$page . '/' . $x] = 1; }
-			$other[] = array('page' => $page, 'name' => $page, 'actions' => array(), 'extras' => $a);
+			foreach(array_keys($acts) as $x){ if(isset($have[$page . '/' . $x])){ $hidden++; } }
 		}
-		if($other){ $sections[] = array('title' => 'Lainnya (halaman lama / bawaan phpRAD)', 'rows' => $other, 'other' => true); }
-		return array('sections' => $sections, 'have' => $have, 'scope' => $scope);
+		return array('sections' => $sections, 'have' => $have, 'scope' => $scope, 'hidden' => $hidden);
 	}
 
 	function index($fieldname = null, $fieldvalue = null){

@@ -152,7 +152,7 @@ $today_day   = (int) date('j');
                 <?php endfor; ?>
             </div>
             <div class="genc-legend">
-                <span><i style="background:#34a853"></i>Baik</span>
+                <span><i style="background:#34a853"></i><?php echo genc_e(genc_pilihan_label('OK')); ?></span>
                 <span><i style="background:var(--gc-nok)"></i>Ada temuan</span>
                 <span><i style="background:#fff;box-shadow:inset 0 0 0 1px var(--gc-border-strong)"></i>Tidak diisi</span>
             </div>
@@ -293,7 +293,7 @@ $today_day   = (int) date('j');
                                     <?php echo genc_strip(genc_display_row($r), $items); ?>
                                     <span class="genc-result__text">
                                         <?php if (empty($bad)): ?><?php echo empty($r['_unknown']) ? 'Semua baik' : 'Tidak ada temuan'; ?><?php else: ?><b><?php echo count($bad); ?> perlu tindakan:</b> <?php echo genc_e(implode(', ', $bad)); ?><?php endif; ?>
-                                        <?php if (!empty($r['_unknown'])): ?><span class="genc-legacy-note" title="Diisi lewat form lama (teks bebas). Kotak abu-abu = isian yang tidak bisa dibaca sebagai Baik / Tidak baik."><?php echo (int) $r['_unknown']; ?> isian lama tidak terbaca</span><?php endif; ?>
+                                        <?php if (!empty($r['_unknown'])): ?><span class="genc-legacy-note" title="Diisi lewat form lama (teks bebas). Kotak abu-abu = isian yang tidak bisa dibaca sebagai <?php echo genc_e(genc_pilihan_label('OK') . ' / ' . genc_pilihan_label('NOK')); ?>."><?php echo (int) $r['_unknown']; ?> isian lama tidak terbaca</span><?php endif; ?>
                                     </span>
                                 </div>
                             </td>
