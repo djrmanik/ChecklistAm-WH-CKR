@@ -977,7 +977,7 @@ function show_flash_msg()
 {
 	$f = get_session("MsgFlash");
 	if (!empty($f)) {
-		echo $f;
+		echo function_exists('gx_flash_mark') ? gx_flash_mark($f) : $f;   // [GENC-13OKT26-TAMPILAN] pesan statis bisa diubah lewat Mode edit tampilan
 		clear_session("MsgFlash");
 	}
 }

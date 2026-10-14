@@ -48,7 +48,7 @@
 			$page_id = "main";
 		}
 	?>
-	<body id="<?php echo $page_id ?>" class="with-login <?php echo $body_class ?> gs-app<?php echo ($page_id !== 'main' && (in_array(strtolower((string) Router::$page_name), array('', 'index'), true) || in_array((string) $this->view_name, array('index/login.php', 'index/index.php', 'index/register.php'), true))) ? ' gs-auth' : ''; ?>">
+	<body id="<?php echo $page_id ?>" class="with-login <?php echo $body_class ?> gs-app<?php echo !empty($GLOBALS['gx_auth_preview']) ? ' gs-auth gx-authprev' : ''; /* [GENC-13OKT26-TAMPILAN] pratinjau halaman Masuk / Daftar di Mode edit */ ?><?php echo ($page_id !== 'main' && (in_array(strtolower((string) Router::$page_name), array('', 'index'), true) || in_array((string) $this->view_name, array('index/login.php', 'index/index.php', 'index/register.php'), true))) ? ' gs-auth' : ''; ?>">
 		<div id="page-wrapper">
 			<!-- Show progress bar when ajax upload-->
 			<div class="progress ajax-progress-bar">

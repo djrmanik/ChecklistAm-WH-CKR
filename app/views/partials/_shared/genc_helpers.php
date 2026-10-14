@@ -12,7 +12,7 @@
 require_once __DIR__ . '/checklist_helpers.php'; // checklist_user_initial(), checklist_display_name(), checklist_nama_bulan()
 
 /** Versi aset - ganti angka ini kalau CSS/JS diubah, supaya browser tidak pakai cache lama. */
-if (!defined('GENC_ASSET_VERSION')) { define('GENC_ASSET_VERSION', '2026101302'); } // [GENC-13OKT26c] riwayat hapus permanen ringkas (dulu 2026101301) [GENC-13OKT26] riwayat ringkas + layar penuh, hapus permanen (dulu 2026100803) // [GENC-08OKT26-P3] paket 3 (dulu 2026100801) [GENC-08OKT26] kartu mesin lipat, mesin aktif/nonaktif, 80 ikon + cari (dulu 2026100701) [GENC-07OKT26-FOTO] banyak foto per item, kolase gambar bagian mesin (dulu 2026100603) [GENC-06OKT26] Mesin & Unit, tab banyak, inisial, tanggal bisa diklik, isi bawaan + kunci (dulu 2026100602)
+if (!defined('GENC_ASSET_VERSION')) { define('GENC_ASSET_VERSION', '2026101402'); } // [GENC-14OKT26-SUSUNAN/TEMA] susunan, posisi bebas, tema (dulu 2026101401) // [GENC-13OKT26-TAMPILAN] Mode edit tampilan 4A (dulu 2026101302) // [GENC-13OKT26c] riwayat hapus permanen ringkas (dulu 2026101301) [GENC-13OKT26] riwayat ringkas + layar penuh, hapus permanen (dulu 2026100803) // [GENC-08OKT26-P3] paket 3 (dulu 2026100801) [GENC-08OKT26] kartu mesin lipat, mesin aktif/nonaktif, 80 ikon + cari (dulu 2026100701) [GENC-07OKT26-FOTO] banyak foto per item, kolase gambar bagian mesin (dulu 2026100603) [GENC-06OKT26] Mesin & Unit, tab banyak, inisial, tanggal bisa diklik, isi bawaan + kunci (dulu 2026100602)
 
 if (!function_exists('genc_e')) {
     function genc_e($v) { return htmlspecialchars((string) ($v === null ? '' : $v), ENT_QUOTES, 'UTF-8'); }
@@ -155,11 +155,12 @@ if (!function_exists('genc_approval_badge')) {
         if ($is_ok) {
             $who = isset($row['user_approve']) ? trim((string) $row['user_approve']) : '';
             if (!preg_match('/[A-Za-z]/', $who)) { $who = ''; }   // [GENC-24SEP26-AGV] isian lama '-' / '.' bukan nama -> tidak ditulis "oleh -"
-            return '<span class="genc-badge genc-badge--ok"><i class="fa fa-check-circle"></i> Approved</span>'
-                 . ($who !== '' ? '<div class="genc-small genc-muted" style="margin-top:3px">oleh ' . genc_e(genc_person_name($who)) . '</div>' : '');
+            $gx = function ($s) { return function_exists('gx_lit') ? gx_lit($s, 'partials/_shared/genc_helpers.php') : $s; };   // [GENC-13OKT26-TAMPILAN]
+            return '<span class="genc-badge genc-badge--ok"><i class="fa fa-check-circle"></i> ' . $gx('Approved') . '</span>'
+                 . ($who !== '' ? '<div class="genc-small genc-muted" style="margin-top:3px">' . $gx('oleh') . ' ' . genc_e(genc_person_name($who)) . '</div>' : '');
         }
         if ($a !== '' && stripos($a, 'not') !== false) { return '<span class="genc-badge genc-badge--nok">' . genc_e($a) . '</span>'; }
-        return '<span class="genc-badge genc-badge--pending"><i class="fa fa-clock-o"></i> Menunggu</span>';
+        return '<span class="genc-badge genc-badge--pending"><i class="fa fa-clock-o"></i> ' . (function_exists('gx_lit') ? gx_lit('Menunggu', 'partials/_shared/genc_helpers.php') : 'Menunggu') . '</span>';
     }
 }
 

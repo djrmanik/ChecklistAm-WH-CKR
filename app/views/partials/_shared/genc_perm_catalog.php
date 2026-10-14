@@ -33,6 +33,7 @@ if (!function_exists('genc_perm_catalog')) {
                 array('page' => 'app_logs',         'name' => 'App Logs',         'actions' => array('list')),
                 array('page' => 'master_select',    'name' => 'Master Select',    'actions' => array('list', 'view', 'add', 'edit', 'delete'), 'sub' => 'daftar pilihan form lama'),
                 array('page' => 'mesin',            'name' => 'Mesin & Unit',     'actions' => array('list', 'add', 'edit', 'delete'), 'sub' => 'tambah / ubah mesin & unit tanpa coding'),   // [GENC-06OKT26-MESIN]
+                array('page' => 'tampilan',         'name' => 'Tampilan',         'actions' => array('list', 'edit'), 'sub' => 'Lihat = Riwayat tampilan; Ubah = Mode edit tampilan (teks, susunan, tema) untuk semua user'),   // [GENC-13OKT26-TAMPILAN]
             )),
         );
         // [GENC-06OKT26-MESIN] halaman mesin yang dibuat lewat menu Mesin & Unit (route am_*)

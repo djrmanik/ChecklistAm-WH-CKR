@@ -12,4 +12,5 @@ uploads/files/*
 uploads/photos/*
 uploads/cached/*
 
-EOF
+uploads/mesin/
+.DS_Store

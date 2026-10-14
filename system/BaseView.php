@@ -1,6 +1,7 @@
 <?php
 defined('ROOT') or exit('No direct script access allowed');
 use Dompdf\Dompdf;
+require_once ROOT . 'app/views/partials/_shared/genc_tampilan.php';   // [GENC-13OKT26-TAMPILAN] Mode edit tampilan (Super Editor UI)
 
 /**
  * Application Base View
@@ -383,7 +384,11 @@ class BaseView
 			}
 
 			if (file_exists(LAYOUTS_DIR . $layout)) {
-				include(LAYOUTS_DIR . $layout);
+				// [GENC-13OKT26-TAMPILAN] ada perubahan tampilan (teks/susunan/tema) atau Mode edit -> view ditandai lalu HTML akhir diproses.
+				// Tidak ada perubahan (v1) -> include biasa, HTML identik dengan sebelumnya.
+				$gx_on = gx_begin($layout);
+				if (gx_inst()) { eval(gx_src(LAYOUTS_DIR . $layout)); } else { include(LAYOUTS_DIR . $layout); }
+				if ($gx_on) { echo gx_finish(ob_get_clean()); }
 			} else {
 				echo "The Layout Does not Exit;";
 			}
@@ -416,7 +421,7 @@ class BaseView
 	{
 		$view = PAGES_DIR . $this->view_name;
 		if (file_exists($view)) {
-			include($view);
+			if (gx_inst()) { eval(gx_src($view)); } else { include($view); }   // [GENC-13OKT26-TAMPILAN]
 		} else {
 			echo "$view File Not Found";
 		}
@@ -432,7 +437,7 @@ class BaseView
 		$this->view_args = $args;
 		$view = PAGES_DIR . $viewname;
 		if (file_exists($view)) {
-			include($view);
+			if (gx_inst()) { eval(gx_src($view)); } else { include($view); }   // [GENC-13OKT26-TAMPILAN]
 		} else {
 			echo "$view File  Not Found";
 		}

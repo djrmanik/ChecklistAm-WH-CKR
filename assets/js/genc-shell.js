@@ -2,6 +2,9 @@
    Vanilla JS, tanpa jQuery. Semua lewat atribut data-gs-*. */
 (function () {
     'use strict';
+    /* [GENC-13OKT26-TAMPILAN] teks yang bisa diubah lewat Mode edit tampilan (window.GX_T: teks awal -> teks baru) */
+    function T(s) { var m = window.GX_T, k = String(s).replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, ''); return (m && Object.prototype.hasOwnProperty.call(m, k)) ? m[k] : s; }
+    function TE(s) { return String(T(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     var body = document.body;
     var KEY = 'gs-side-hidden';
     var mq = window.matchMedia ? window.matchMedia('(max-width: 991.98px)') : { matches: false };
@@ -52,7 +55,7 @@
                 var show = inp.type === 'password';
                 inp.type = show ? 'text' : 'password';
                 eye.innerHTML = show ? '<i class="fa fa-eye-slash"></i>' : '<i class="fa fa-eye"></i>';
-                eye.setAttribute('aria-label', show ? 'Sembunyikan password' : 'Tampilkan password');
+                eye.setAttribute('aria-label', show ? T('Sembunyikan password') : T('Tampilkan password'));
             }
         }
     });
@@ -69,6 +72,6 @@
         var f = e.target;
         if (!f.matches || !f.matches('[data-gs-auth]')) { return; }
         var btn = f.querySelector('.gs-submit');
-        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> ' + (btn.getAttribute('data-gs-busy') || 'Memproses...'); }
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> ' + TE(btn.getAttribute('data-gs-busy') || 'Memproses...'); }
     });
 })();

@@ -24,7 +24,7 @@ $has_filter = $fl['dari'] !== '' || $fl['sampai'] !== '' || $fl['user'] !== '';
             <div class="genc-menu" data-genc-menu>   <?php /* [GENC-08OKT26-P3] export mengikuti filter */ ?>
                 <button type="button" class="genc-btn" data-genc-menu-toggle aria-haspopup="true" aria-expanded="false"><i class="fa fa-download"></i> Export <i class="fa fa-angle-down"></i></button>
                 <div class="genc-menu__list genc-menu__list--right" role="menu">
-                    <div class="genc-menu__label"><?php echo genc_e($d['kinds'][$d['kind']][0]); ?> &middot; <?php echo (int) $d['total']; ?> catatan<?php echo $has_filter || $d['q'] !== '' ? ' (sesuai filter)' : ''; ?></div>
+                    <div class="genc-menu__label"><?php echo genc_e(gx_lit($d['kinds'][$d['kind']][0], 'partials/app_logs/list.php')); ?> &middot; <?php echo (int) $d['total']; ?> catatan<?php echo $has_filter || $d['q'] !== '' ? ' (sesuai filter)' : ''; ?></div>
                     <a class="genc-menu__item" role="menuitem" target="_blank" href="<?php echo genc_e(genc_url('app_logs', $base + array('format' => 'pdf'))); ?>"><i class="fa fa-file-pdf-o"></i><span>PDF<small>Ringkasan + daftar per jenis, siap cetak</small></span></a>
                     <a class="genc-menu__item" role="menuitem" href="<?php echo genc_e(genc_url('app_logs', $base + array('format' => 'excel'))); ?>"><i class="fa fa-file-excel-o"></i><span>Excel<small>Sheet ringkasan + 1 sheet per jenis</small></span></a>
                     <a class="genc-menu__item" role="menuitem" href="<?php echo genc_e(genc_url('app_logs', $base + array('format' => 'csv'))); ?>"><i class="fa fa-file-text-o"></i><span>CSV<small>1 tabel, untuk diolah</small></span></a>
@@ -37,7 +37,7 @@ $has_filter = $fl['dari'] !== '' || $fl['sampai'] !== '' || $fl['user'] !== '';
         <form class="genc-toolbar" method="get" action="<?php print_link('app_logs'); ?>">
             <div class="genc-chips" style="flex-wrap:wrap">
                 <?php foreach ($d['kinds'] as $k => $v): ?>
-                    <a class="genc-chip<?php echo $d['kind'] === $k ? ' is-active' : ''; ?>" href="<?php echo genc_e(genc_url('app_logs', array_merge($base, array('jenis' => $k)))); ?>"><?php echo genc_e($v[0]); ?><span class="genc-chip__count"><?php echo (int) $d['counts'][$k]; ?></span></a>
+                    <a class="genc-chip<?php echo $d['kind'] === $k ? ' is-active' : ''; ?>" href="<?php echo genc_e(genc_url('app_logs', array_merge($base, array('jenis' => $k)))); ?>"><?php echo genc_e(gx_lit($v[0], 'partials/app_logs/list.php')); /* [GENC-13OKT26-TAMPILAN] */ ?><span class="genc-chip__count"><?php echo (int) $d['counts'][$k]; ?></span></a>
                 <?php endforeach; ?>
             </div>
             <span class="genc-grow"></span>
@@ -75,7 +75,7 @@ $has_filter = $fl['dari'] !== '' || $fl['sampai'] !== '' || $fl['user'] !== '';
                 <tr>
                     <td data-label="Waktu"><div class="genc-date"><span class="genc-date__main"><?php echo genc_e(genc_date($r['Timestamp'])); ?></span><span class="genc-date__sub"><?php echo genc_e(genc_time($r['Timestamp'])); ?> &middot; <?php echo genc_e($r['ServerIP']); ?></span></div></td>
                     <td data-label="Oleh"><?php echo $u ? genc_person($u['username'], genc_e($u['username'])) : ($uid !== '' ? '<span class="genc-muted">user #' . genc_e($uid) . '</span>' : '<span class="genc-muted">&ndash;</span>'); ?></td>
-                    <td data-label="Jenis"><span class="genc-tag<?php echo $lab[1] !== '' ? ' genc-tag--' . $lab[1] : ''; ?>"><?php echo genc_e($lab[0]); ?></span></td>
+                    <td data-label="Jenis"><span class="genc-tag<?php echo $lab[1] !== '' ? ' genc-tag--' . $lab[1] : ''; ?>"><?php echo genc_e($old ? $lab[0] : gx_lit($lab[0], 'partials/app_logs/list.php')); ?></span></td>
                     <td data-label="Keterangan">
                         <div class="genc-log__msg"><?php echo genc_e($msg); ?></div>
                         <?php if (($raw !== '' && $raw !== '[]' && $raw !== '{}') || $sql !== ''): ?>

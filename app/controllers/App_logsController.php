@@ -32,7 +32,8 @@ class App_logsController extends SecureController{
 			'checklist' => array('Checklist', "(Action LIKE 'checklist.%')"),
 			'admin'     => array('User & hak akses', "(Action LIKE 'users.%' OR Action LIKE 'roles.%' OR Action LIKE 'permissions.%' OR Action LIKE 'master_select.%')"),
 			'mesin'     => array('Mesin & unit', "(Action LIKE 'mesin.%')"),   // [GENC-06OKT26-MESIN]
-			'lain'      => array('Lainnya', "(Action NOT LIKE 'userlog%' AND Action NOT LIKE 'checklist.%' AND Action NOT LIKE 'users.%' AND Action NOT LIKE 'roles.%' AND Action NOT LIKE 'permissions.%' AND Action NOT LIKE 'master_select.%' AND Action NOT LIKE 'mesin.%')"),   // [GENC-08OKT26-P3] mis. export log
+			'tampilan'  => array('Tampilan', "(Action LIKE 'tampilan.%')"),   // [GENC-13OKT26-TAMPILAN]
+			'lain'      => array('Lainnya', "(Action NOT LIKE 'userlog%' AND Action NOT LIKE 'checklist.%' AND Action NOT LIKE 'users.%' AND Action NOT LIKE 'roles.%' AND Action NOT LIKE 'permissions.%' AND Action NOT LIKE 'master_select.%' AND Action NOT LIKE 'mesin.%' AND Action NOT LIKE 'tampilan.%')"),   // [GENC-08OKT26-P3] mis. export log
 		);
 	}
 
@@ -56,6 +57,9 @@ class App_logsController extends SecureController{
 			// [GENC-13OKT26] hapus permanen dari Arsip + cadangan
 			'mesin.hapus' => array('Hapus permanen mesin', 'nok'), 'mesin.unit.hapus' => array('Hapus permanen unit', 'nok'),
 			'mesin.hapus.gagal' => array('Hapus permanen batal', 'pr'), 'mesin.cadangan' => array('Unduh cadangan', ''),
+			// [GENC-13OKT26-TAMPILAN] Mode edit tampilan
+			'tampilan.simpan' => array('Simpan tampilan', 'primary'), 'tampilan.versi' => array('Kembalikan tampilan', 'pending'),
+			'tampilan.batal' => array('Buang draf tampilan', ''), 'tampilan.mode' => array('Mode edit tampilan', ''), 'tampilan.data' => array('Ubah data (jalan pintas)', 'pr'),
 		);
 	}
 
@@ -66,6 +70,7 @@ class App_logsController extends SecureController{
 		if(strpos($a, 'checklist.') === 0){ return 'checklist'; }
 		if(preg_match('/^(users|roles|permissions|master_select)\./', $a)){ return 'admin'; }
 		if(strpos($a, 'mesin.') === 0){ return 'mesin'; }
+		if(strpos($a, 'tampilan.') === 0){ return 'tampilan'; }   // [GENC-13OKT26-TAMPILAN]
 		return 'lain';
 	}
 

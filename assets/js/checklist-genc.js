@@ -17,6 +17,9 @@
    ========================================================================= */
 (function () {
     'use strict';
+    /* [GENC-13OKT26-TAMPILAN] teks yang bisa diubah lewat Mode edit tampilan (window.GX_T: teks awal -> teks baru) */
+    function T(s) { var m = window.GX_T, k = String(s).replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, ''); return (m && Object.prototype.hasOwnProperty.call(m, k)) ? m[k] : s; }
+    function TE(s) { return String(T(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
     function $all(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
     function closest(el, sel) {
@@ -41,7 +44,7 @@
             try { window.localStorage.setItem(key, JSON.stringify(ids)); } catch (e) { /* mode privat: tidak diingat */ }
             if (all) {
                 var any = cards.some(function (c) { return c.classList.contains('is-closed'); });
-                all.querySelector('span').textContent = any ? 'Buka semua' : 'Tutup semua';
+                all.querySelector('span').textContent = any ? T('Buka semua') : T('Tutup semua');
                 all.querySelector('i').className = 'fa ' + (any ? 'fa-expand' : 'fa-compress');
             }
         }
@@ -130,12 +133,12 @@
         d.className = 'genc-dialog';
         d.innerHTML =
             '<div class="genc-dialog__body"><div class="genc-dialog__title"></div><div class="genc-dialog__msg genc-muted"></div></div>' +
-            '<div class="genc-dialog__foot"><button type="button" class="genc-btn" data-act="no">Batal</button>' +
+            '<div class="genc-dialog__foot"><button type="button" class="genc-btn" data-act="no">' + TE('Batal') + '</button>' +
             '<button type="button" class="genc-btn" data-act="yes"></button></div>';
-        d.querySelector('.genc-dialog__title').textContent = opts.title || 'Yakin?';
+        d.querySelector('.genc-dialog__title').textContent = opts.title || T('Yakin?');
         d.querySelector('.genc-dialog__msg').textContent = opts.message || '';
         var yes = d.querySelector('[data-act="yes"]');
-        yes.textContent = opts.ok || 'Lanjutkan';
+        yes.textContent = opts.ok || T('Lanjutkan');
         yes.classList.add(opts.danger ? 'genc-btn--danger' : 'genc-btn--primary');
         var wrap = document.createElement('div');
         wrap.className = 'genc';
@@ -183,7 +186,7 @@
         e.preventDefault();
         var d = document.createElement('dialog');
         d.className = 'genc-dialog genc-lightbox';
-        d.innerHTML = '<img alt=""><div class="genc-lightbox__cap"><span></span><button type="button" class="genc-btn genc-btn--sm" data-lb-close>Tutup</button></div>';
+        d.innerHTML = '<img alt=""><div class="genc-lightbox__cap"><span></span><button type="button" class="genc-btn genc-btn--sm" data-lb-close>' + TE('Tutup') + '</button></div>';
         d.querySelector('img').src = t.getAttribute('data-genc-lightbox');
         d.querySelector('img').alt = t.getAttribute('data-genc-caption') || '';
         d.querySelector('span').textContent = t.getAttribute('data-genc-caption') || '';
@@ -193,7 +196,7 @@
         if (gal.length > 1) {
             var gi = 0, cap = t.getAttribute('data-genc-caption') || '';
             var nav = document.createElement('div'); nav.className = 'genc-lightbox__nav';
-            nav.innerHTML = '<button type="button" class="genc-lightbox__btn" data-lb="-1" aria-label="Foto sebelumnya"><i class="fa fa-chevron-left"></i></button><b></b><button type="button" class="genc-lightbox__btn" data-lb="1" aria-label="Foto berikutnya"><i class="fa fa-chevron-right"></i></button>';
+            nav.innerHTML = '<button type="button" class="genc-lightbox__btn" data-lb="-1" aria-label="' + TE('Foto sebelumnya') + '"><i class="fa fa-chevron-left"></i></button><b></b><button type="button" class="genc-lightbox__btn" data-lb="1" aria-label="' + TE('Foto berikutnya') + '"><i class="fa fa-chevron-right"></i></button>';
             d.insertBefore(nav, d.querySelector('.genc-lightbox__cap'));
             var show = function (i) {
                 gi = (i + gal.length) % gal.length;
@@ -228,7 +231,7 @@
         d.className = 'genc-dialog';
         d.innerHTML = '<div class="genc-dialog__body"><div class="genc-dialog__title"><i class="fa fa-camera" style="color:var(--gc-muted);margin-right:8px"></i><span></span></div>' +
             '<div class="genc-dialog__msg genc-muted"></div></div>' +
-            '<div class="genc-dialog__foot"><button type="button" class="genc-btn genc-btn--primary" data-act="ok">Mengerti</button></div>';
+            '<div class="genc-dialog__foot"><button type="button" class="genc-btn genc-btn--primary" data-act="ok">' + TE('Mengerti') + '</button></div>';
         d.querySelector('.genc-dialog__title span').textContent = title;
         d.querySelector('.genc-dialog__msg').textContent = msg;
         var wrap = document.createElement('div');
@@ -280,12 +283,12 @@
                 if (v !== '') { done++; item.classList.remove('has-error'); var er = item.querySelector('.genc-item__err'); if (er) { er.remove(); } }
                 if (v === 'NOK' || v === 'PR') { issues.push(item.getAttribute('data-genc-name')); }
             });
-            if (countEl) { countEl.textContent = done + ' dari ' + items.length; }
+            if (countEl) { countEl.textContent = done + ' ' + T('dari') + ' ' + items.length; }
             if (meterEl) { meterEl.style.width = (items.length ? Math.round(done * 100 / items.length) : 0) + '%'; }
             if (stateEl) {
                 if (done < items.length) { stateEl.innerHTML = ''; }
-                else if (issues.length) { stateEl.innerHTML = '<span class="genc-badge genc-badge--nok"><i class="fa fa-exclamation-triangle"></i> Perlu tindakan: ' + issues.length + ' item</span>'; }
-                else { stateEl.innerHTML = '<span class="genc-badge genc-badge--ok"><i class="fa fa-check"></i> Semua baik</span>'; }
+                else if (issues.length) { stateEl.innerHTML = '<span class="genc-badge genc-badge--nok"><i class="fa fa-exclamation-triangle"></i> ' + TE('Perlu tindakan:') + ' ' + issues.length + ' ' + TE('item') + '</span>'; }
+                else { stateEl.innerHTML = '<span class="genc-badge genc-badge--ok"><i class="fa fa-check"></i> ' + TE('Semua baik') + '</span>'; }
             }
             if (ketWrap) {
                 ketWrap.classList.toggle('is-required', issues.length > 0);
@@ -318,7 +321,7 @@
                 if (!wrap.querySelector('.genc-item__err')) {
                     var m = document.createElement('div');
                     m.className = 'genc-item__err';
-                    m.textContent = wrap.getAttribute('data-genc-field-msg') || 'Isian ini wajib diisi.';
+                    m.textContent = wrap.getAttribute('data-genc-field-msg') || T('Isian ini wajib diisi.');
                     var box = wrap.querySelector('.genc-input-suffix') || wrap.querySelector('input');
                     box.parentNode.insertBefore(m, box.nextSibling);
                 }
@@ -330,7 +333,7 @@
                     if (!item.querySelector('.genc-item__err')) {
                         var m = document.createElement('div');
                         m.className = 'genc-item__err';
-                        m.textContent = 'Pilih hasil pengecekan item ini.';
+                        m.textContent = T('Pilih hasil pengecekan item ini.');
                         item.querySelector('.genc-item__body').appendChild(m);
                     }
                     first = first || item;
@@ -349,7 +352,7 @@
             }
             window.__gencSubmitting = true;
             var btn = form.querySelector('[type=submit]');
-            if (btn) { btn.classList.add('is-disabled'); btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Menyimpan...'; }
+            if (btn) { btn.classList.add('is-disabled'); btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> ' + TE('Menyimpan...'); }
         });
 
         window.addEventListener('beforeunload', function (e) {

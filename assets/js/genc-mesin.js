@@ -16,6 +16,9 @@
    ========================================================================= */
 (function () {
     'use strict';
+    /* [GENC-13OKT26-TAMPILAN] teks yang bisa diubah lewat Mode edit tampilan (window.GX_T: teks awal -> teks baru) */
+    function T(s) { var m = window.GX_T, k = String(s).replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, ''); return (m && Object.prototype.hasOwnProperty.call(m, k)) ? m[k] : s; }
+    function TE(s) { return String(T(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     function $all(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
     function closest(el, sel) {
         while (el && el.nodeType === 1) { if (el.matches ? el.matches(sel) : el.msMatchesSelector(sel)) { return el; } el = el.parentNode; }
@@ -38,7 +41,7 @@
                 lb.hidden = !hit && !lb.querySelector('input').checked;   /* ikon terpilih tetap terlihat */
                 if (hit) { n++; }
             });
-            if (cnt) { cnt.textContent = n + ' ikon'; }
+            if (cnt) { cnt.textContent = n + ' ' + T('ikon'); }
             if (none) { none.hidden = n > 0; }
         }
         if (find) {
@@ -110,7 +113,7 @@
             var allClosed = folders.every(function (f) { return !f.open; });
             folders.forEach(function (f) { f.open = allClosed; });
             collapse.querySelector('.fa').className = 'fa ' + (allClosed ? 'fa-minus-square-o' : 'fa-plus-square-o');
-            collapse.title = allClosed ? 'Tutup semua folder' : 'Buka semua folder';
+            collapse.title = allClosed ? T('Tutup semua folder') : T('Buka semua folder');
         });
     }
     /* item terpilih selalu kelihatan di pohon (pohon punya gulir sendiri) */
@@ -152,7 +155,7 @@
         if (bar) {
             bar.classList.add('is-dirty');
             var t = bar.querySelector('[data-gm-dirty-txt]');
-            if (t) { t.textContent = 'Ada perubahan yang belum disimpan.'; }
+            if (t) { t.textContent = T('Ada perubahan yang belum disimpan.'); }
         }
     }
     function renumber() {
@@ -292,11 +295,11 @@
         var first = true;
         $all('.gm-foto:not(.gm-foto--add)', list).forEach(function (f) {
             f.classList.toggle('is-main', first);
-            f.title = first ? 'Foto utama' : 'Klik: jadikan foto utama';
+            f.title = first ? T('Foto utama') : T('Klik: jadikan foto utama');
             first = false;
         });
         var cnt = box.querySelector('[data-gm-fotocount]');
-        if (cnt) { cnt.textContent = n ? n + '/' + MAX_FOTO + ' foto' : ''; }
+        if (cnt) { cnt.textContent = n ? n + '/' + MAX_FOTO + ' ' + T('foto') : ''; }
     }
     function addItemPhotos(input) {
         var box = closest(input, '[data-gm-fotos]');
@@ -307,7 +310,7 @@
         var cut = Math.max(0, files.length - room);
         if (cut > 0) { files = files.slice(0, room); }
         if (bad > 0 || cut > 0) {
-            var msg = (bad ? bad + ' file bukan foto dilewati. ' : '') + (cut ? 'Maksimal ' + MAX_FOTO + ' foto per item: ' + cut + ' foto tidak ditambahkan.' : '');
+            var msg = (bad ? bad + ' ' + T('file bukan foto dilewati.') + ' ' : '') + (cut ? T('Maksimal') + ' ' + MAX_FOTO + ' ' + T('foto per item:') + ' ' + cut + ' ' + T('foto tidak ditambahkan.') : '');
             note(box, msg);
         }
         if (!files.length) { input.value = ''; return; }
@@ -325,7 +328,7 @@
             d.className = 'gm-foto is-new'; d.setAttribute('data-gm-foto', ''); d.setAttribute('data-gm-new', '');
             d._gmFile = f; d._gmInput = input; d._gmIdx = i;
             var im = document.createElement('img'); im.alt = ''; im.src = (window.URL || window.webkitURL).createObjectURL(f);
-            var x = document.createElement('button'); x.type = 'button'; x.className = 'gm-foto__x'; x.setAttribute('data-gm-foto-x', ''); x.title = 'Batal'; x.setAttribute('aria-label', 'Batalkan foto ini'); x.innerHTML = '&times;';
+            var x = document.createElement('button'); x.type = 'button'; x.className = 'gm-foto__x'; x.setAttribute('data-gm-foto-x', ''); x.title = T('Batal'); x.setAttribute('aria-label', T('Batalkan foto ini')); x.innerHTML = '&times;';
             var b = document.createElement('span'); b.className = 'gm-foto__new'; b.textContent = 'baru';
             d.appendChild(im); d.appendChild(b); d.appendChild(x);
             list.insertBefore(d, add);
@@ -429,12 +432,12 @@
         var im = document.createElement('img'); im.alt = ''; im.src = src; f.appendChild(im);
         var b = el('span', 'gm-kt__no'); b.textContent = no; f.appendChild(b);
         if (kind === 'new') { f.appendChild(el('span', 'gm-kt__new', 'baru')); return f; }
-        var eye = el('label', 'gm-kt__btn gm-kt__eye'); eye.title = 'Tampil / sembunyikan di report';
+        var eye = el('label', 'gm-kt__btn gm-kt__eye'); eye.title = T('Tampil / sembunyikan di report');
         var c = document.createElement('input'); c.type = 'checkbox'; c.name = 'gambar_hide[' + slot + '][]'; c.value = path; c.checked = !!st.hidden[path];
         eye.appendChild(c); eye.appendChild(el('i', 'fa fa-eye')); f.appendChild(eye);
         if (c.checked) { f.classList.add('is-off'); }
         if (kind === 'x') {
-            var dl = el('label', 'gm-kt__btn gm-kt__del'); dl.title = 'Hapus foto tambahan';
+            var dl = el('label', 'gm-kt__btn gm-kt__del'); dl.title = T('Hapus foto tambahan');
             var c2 = document.createElement('input'); c2.type = 'checkbox'; c2.name = 'gambar_extra_del[' + slot + '][]'; c2.value = path; c2.checked = !!st.xdel[path];
             dl.appendChild(c2); dl.appendChild(el('i', 'fa fa-trash-o')); f.appendChild(dl);
             if (c2.checked) { f.classList.add('is-gone'); }
@@ -500,7 +503,7 @@
         var row = closest(fi, '[data-gm-xrow]');
         var files = Array.prototype.slice.call(fi.files || []).filter(function (f) { return /^image\//.test(f.type); });
         var nm = row.querySelector('[data-gm-xname]');
-        if (nm) { nm.textContent = files.length ? files.length + ' foto dipilih' : 'Pilih foto'; }
+        if (nm) { nm.textContent = files.length ? files.length + ' ' + T('foto dipilih') : T('Pilih foto'); }
         if (files.length !== (fi.files || []).length) { setFiles(fi, files); }
         shrinkAll(fi, files, function () {});
         refreshGambar();
@@ -580,6 +583,7 @@
         var none = full.querySelector('[data-gm-vnone]');
         var chips = $all('[data-gm-vkind-btn]', full);
         var month = full.querySelector('[data-gm-vmonth-sel]');
+        var sels = $all('[data-gm-vsel]', full);   /* [GENC-13OKT26-TAMPILAN] filter pilihan lain: <select data-gm-vsel="x"> cocok dengan data-gm-vf-x="|a|b|" */
         var total = items.length, kind = '';
         var apply = function () {
             /* kata dicocokkan dari AWAL kata ("6" cocok dengan "Pallet Mover 6", bukan "2026") */
@@ -589,7 +593,8 @@
                 var t = tok(li.getAttribute('data-gm-vtext') || '');
                 var hit = words.every(function (w) { return w === '' || t.indexOf(' ' + w) !== -1; })
                     && (kind === '' || li.getAttribute('data-gm-vkind') === kind)
-                    && (m === '' || li.getAttribute('data-gm-vmonth') === m);
+                    && (m === '' || li.getAttribute('data-gm-vmonth') === m)
+                    && sels.every(function (sl) { return sl.value === '' || (li.getAttribute('data-gm-vf-' + sl.getAttribute('data-gm-vsel')) || '').indexOf('|' + sl.value + '|') !== -1; });
                 li.hidden = !hit;
                 if (hit) { n++; }
             });
@@ -599,6 +604,7 @@
         find.addEventListener('input', apply);
         find.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); } });
         if (month) { month.addEventListener('change', apply); }
+        sels.forEach(function (sl) { sl.addEventListener('change', apply); });
         chips.forEach(function (c) {
             c.addEventListener('click', function () {
                 kind = c.getAttribute('data-gm-vkind-btn') || '';

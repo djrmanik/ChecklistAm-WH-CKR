@@ -63,11 +63,11 @@ $total_rows = 0;
         <table class="genc-perm">
             <thead><tr>
                 <th>Halaman</th>
-                <?php foreach ($cols as $k => $c): ?><th><?php echo genc_e($c[0]); ?><?php echo $c[1] !== '' ? '<small>' . genc_e($c[1]) . '</small>' : ''; ?></th><?php endforeach; ?>
+                <?php foreach ($cols as $k => $c): ?><th><?php echo genc_e(gx_lit($c[0], 'partials/role_permissions/list.php')); ?><?php echo $c[1] !== '' ? '<small>' . genc_e(gx_lit($c[1], 'partials/role_permissions/list.php')) . '</small>' : ''; ?></th><?php endforeach; ?>
             </tr></thead>
             <tbody>
             <?php foreach ($m['sections'] as $sec): ?>
-                <tr class="genc-perm__sec"><td colspan="<?php echo count($cols) + 1; ?>"><?php echo genc_e($sec['title']); ?></td></tr>
+                <tr class="genc-perm__sec"><td colspan="<?php echo count($cols) + 1; ?>"><?php echo genc_e(gx_lit($sec['title'], 'partials/role_permissions/list.php')); ?></td></tr>
                 <?php foreach ($sec['rows'] as $row): $total_rows++; ?>
                 <tr data-rp-row="<?php echo !empty($row['machine']) ? 'machine' : ''; ?>">
                     <td class="genc-perm__page"><b<?php echo !empty($sec['other']) ? ' class="genc-mono"' : ''; ?>><?php echo genc_e($row['name']); ?></b><?php if (!empty($row['sub'])): ?><small><?php echo genc_e($row['sub']); ?></small><?php endif; ?></td>

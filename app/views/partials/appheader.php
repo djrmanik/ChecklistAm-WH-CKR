@@ -27,6 +27,9 @@ $gs_logged = (user_login_status() == true);
     $gs_role  = (string) ACL::$user_role;
 ?>
     <span class="gs-today"><i class="fa fa-calendar-o"></i> <?php echo genc_e(genc_date(time(), true)); ?></span>
+    <?php if (gx_can_edit()): $gx_m = gx_mode();   /* [GENC-13OKT26-TAMPILAN] Mode edit tampilan (hak tampilan/edit) */ ?>
+    <a class="gs-gxbtn<?php echo $gx_m !== '' ? ' is-on' : ''; ?>" href="<?php echo genc_e(gx_mode_url($gx_m !== '' ? 'keluar' : 'edit')); ?>" title="<?php echo $gx_m !== '' ? 'Keluar dari Mode edit tampilan' : 'Ubah teks &amp; susunan tampilan tanpa coding'; ?>" data-gx-topbtn><i class="fa <?php echo $gx_m !== '' ? 'fa-sign-out' : 'fa-paint-brush'; ?>" aria-hidden="true"></i><span><?php echo $gx_m !== '' ? 'Keluar mode edit' : 'Mode edit tampilan'; ?></span></a>
+    <?php endif; ?>
     <div class="gs-user" data-gs-user>
         <button type="button" class="gs-user__btn" data-gs-user-toggle aria-haspopup="true" aria-expanded="false">
             <span class="gs-avatar" aria-hidden="true"><?php echo genc_e($gs_ini); ?></span>
@@ -39,6 +42,7 @@ $gs_logged = (user_login_status() == true);
                 <div style="min-width:0"><b><?php echo genc_e($gs_nama); ?></b><small><?php echo genc_e(USER_NAME); ?> &middot; <?php echo genc_e($gs_role); ?></small></div>
             </div>
             <a class="gs-menu-link" role="menuitem" href="<?php print_link('account'); ?>"><i class="fa fa-user"></i> Akun saya</a>
+            <?php if (ACL::is_allowed('tampilan')): ?><a class="gs-menu-link" role="menuitem" href="<?php print_link('tampilan'); ?>"><i class="fa fa-paint-brush"></i> Riwayat tampilan</a><?php endif; ?>
             <a class="gs-menu-link gs-menu-link--danger" role="menuitem" href="<?php print_link('index/logout?csrf_token=' . Csrf::$token); ?>"><i class="fa fa-sign-out"></i> Keluar</a>
         </div>
     </div>
@@ -59,7 +63,7 @@ $gs_logged = (user_login_status() == true);
         'kir3p01dp001' => 'fa-download', 'mesin_geprek' => 'fa-compress', 'conveyor' => 'fa-exchange',
         'palletmover/approval' => 'fa-check-square-o', 'palletmover/uncompleted' => 'fa-exclamation-triangle',
         'users' => 'fa-users', 'roles' => 'fa-shield', 'role_permissions' => 'fa-key', 'app_logs' => 'fa-history',
-        'master_select' => 'fa-list-ul', 'mesin' => 'fa-sitemap',
+        'master_select' => 'fa-list-ul', 'mesin' => 'fa-sitemap', 'tampilan' => 'fa-paint-brush',
     );
     // [GENC-06OKT26-MESIN] unit baru Dumping/Geprek/Conveyor (route am_*) menandai menu mesinnya aktif
     require_once ROOT . 'app/views/partials/_shared/genc_registry.php';
@@ -87,11 +91,13 @@ $gs_logged = (user_login_status() == true);
         }
     }
     // [GENC-06OKT26-MESIN] jenis mesin baru (menu Mesin & Unit) di bawah mesin bawaan + menu Mesin & Unit di Admin & sistem
+    $gs_jenis_p = genc_reg_active_jenis();   // [GENC-13OKT26-TAMPILAN] nama mesin baru = data
     foreach (genc_reg_active_jenis() as $gs_jp => $gs_jm) {
         $gs_sections['am'][] = array('path' => $gs_jp, 'label' => $gs_jm['nama']);
         $gs_icons[$gs_jp] = $gs_jm['ikon'];
     }
     array_unshift($gs_sections['admin'], array('path' => 'mesin', 'label' => 'Mesin & Unit'));
+    $gs_sections['admin'][] = array('path' => 'tampilan', 'label' => 'Riwayat tampilan');   // [GENC-13OKT26-TAMPILAN] hak tampilan/list
     $gs_is_active = function ($path) use ($gs_page, $gs_action, $gs_match) {
         $path = trim($path, '/');
         $seg  = explode('/', $path);
@@ -115,6 +121,7 @@ $gs_logged = (user_login_status() == true);
                 if ($gs_to === '') { continue; }
                 if ($gs_to !== $p0) { $it['href'] = $gs_to; }
                 $it['label'] = $gs_mesin[$p0]['title'];   // [GENC-08OKT26-P3] nama mesin dari menu Mesin & Unit (awal = sama dengan Menu.php)
+                $it['data'] = true;   // [GENC-13OKT26-TAMPILAN] nama mesin = data (jalan pintas ke Mesin & Unit), bukan teks kode
                 $shown[] = $it;
                 continue;
             }
@@ -127,13 +134,13 @@ $gs_logged = (user_login_status() == true);
         }
         if (empty($shown)) { continue; } ?>
         <div class="gs-sec">
-            <?php if ($gs_sec_label[$key] !== ''): ?><div class="gs-sec__label"><?php echo genc_e($gs_sec_label[$key]); ?></div><?php endif; ?>
+            <?php if ($gs_sec_label[$key] !== ''): ?><div class="gs-sec__label"><?php echo genc_e(gx_lit($gs_sec_label[$key], 'partials/appheader.php')); ?></div><?php endif; ?>
             <ul class="gs-nav">
             <?php foreach ($shown as $it):
                 $p = trim($it['path'], '/');
                 $icon = isset($gs_icons[$p]) ? $gs_icons[$p] : 'fa-circle-o';
                 $act = $gs_is_active($p); ?>
-                <li><a class="gs-nav__link<?php echo $act ? ' is-active' : ''; ?>" href="<?php print_link(isset($it['href']) ? $it['href'] : $p); ?>"<?php echo $act ? ' aria-current="page"' : ''; ?>><i class="fa <?php echo $icon; ?>" aria-hidden="true"></i><span><?php echo genc_e($it['label']); ?></span></a></li>
+                <li><a class="gs-nav__link<?php echo $act ? ' is-active' : ''; ?>" href="<?php print_link(isset($it['href']) ? $it['href'] : $p); ?>"<?php echo $act ? ' aria-current="page"' : ''; ?>><i class="fa <?php echo $icon; ?>" aria-hidden="true"></i><span><?php echo genc_e(empty($it['data']) && !isset($gs_jenis_p[$p]) ? gx_lit($it['label'], 'partials/appheader.php') : $it['label']); ?></span></a></li>
             <?php endforeach; ?>
             </ul>
         </div>
