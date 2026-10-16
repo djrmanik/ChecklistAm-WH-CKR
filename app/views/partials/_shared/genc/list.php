@@ -145,7 +145,7 @@ $today_day   = (int) date('j');
                     $c_cls = 'genc-cal__d genc-cal__d--' . $cls . ($is_today ? ' genc-cal__d--today' : '') . ($hari === $i ? ' is-picked' : '');
                     $c_tip = $i . ' ' . $nama_bulan[$period['bulan']] . ($tip ? ': ' . $tip : '');
                     if ($cls !== 'future'):   /* [GENC-06OKT26-TANGGAL] klik = daftar tanggal itu saja; klik lagi = sebulan */ ?>
-                    <a class="<?php echo $c_cls; ?>" href="<?php echo genc_e(genc_url($pg, array_merge($keep, array('hari' => $hari === $i ? '' : $i, 'hal' => '')))); ?>" title="<?php echo genc_e($c_tip . ($hari === $i ? ' - klik lagi untuk sebulan' : ' - klik untuk lihat tanggal ini')); ?>"<?php echo $hari === $i ? ' aria-current="date"' : ''; ?>><?php echo $i; ?></a>
+                    <a class="<?php echo $c_cls; ?>" href="<?php echo genc_e(genc_url($pg, array_merge($keep, array('hari' => $hari === $i ? '' : $i, 'hal' => '', 'status' => '')))); /* [GENC-16OKT26-TEMUAN2] klik tanggal = SEMUA checklist hari itu (yang sudah beres tetap terlihat, berlabel Beres) */ ?>" title="<?php echo genc_e($c_tip . ($hari === $i ? ' - klik lagi untuk sebulan' : ' - klik untuk lihat tanggal ini')); ?>"<?php echo $hari === $i ? ' aria-current="date"' : ''; ?>><?php echo $i; ?></a>
                     <?php else: ?>
                     <span class="<?php echo $c_cls; ?>" title="<?php echo genc_e($c_tip); ?>"><?php echo $i; ?></span>
                     <?php endif; ?>
@@ -177,16 +177,19 @@ $today_day   = (int) date('j');
             <?php endif; ?>
         </div>
 
-        <!-- Temuan -->
+        <!-- Temuan belum beres  [GENC-16OKT26-TEMUAN2] aturan sama dengan NOK History: checklist berikutnya yang Baik = beres -->
+        <?php $tmi = $d['temuan']; ?>
         <a class="genc-card genc-kpi genc-kpi--link<?php echo $status === 'tindakan' ? ' is-active' : ''; ?>" href="<?php echo genc_e(genc_url($pg, array_merge($base, array('status' => $status === 'tindakan' ? '' : 'tindakan')))); ?>">
-            <div class="genc-kpi__label"><i class="fa fa-exclamation-triangle"></i> Perlu tindakan</div>
-            <div class="genc-kpi__value" style="color:<?php echo $summary['issues'] ? 'var(--gc-nok)' : 'var(--gc-text)'; ?>"><?php echo (int) $summary['issues']; ?> <small>checklist</small></div>
+            <div class="genc-kpi__label"><i class="fa fa-clock-o"></i> Temuan belum beres</div>
+            <div class="genc-kpi__value" style="color:<?php echo $tmi['open'] ? 'var(--gc-pr-text)' : 'var(--gc-text)'; ?>"><?php echo (int) $tmi['open']; ?> <small>temuan</small></div>
             <div class="genc-kpi__hint">
-                <?php if (!empty($summary['item_issue'])):
+                <?php if ($tmi['open']):
                     $parts = array();
-                    foreach ($summary['item_issue'] as $name => $n) { $parts[] = genc_e($name) . ' (' . (int) $n . ')'; }
-                    echo 'Terbanyak: ' . implode(', ', $parts);
-                else: ?>Tidak ada item NOK / perawatan<?php endif; ?>
+                    foreach ($tmi['parts'] as $name => $n) { $parts[] = genc_e($name) . ($n > 1 ? ' (' . (int) $n . ')' : ''); } ?>
+                    Terlama <?php echo genc_e(genc_tm_lama($tmi['days'], true)); ?> &middot; <?php echo implode(', ', $parts); ?>
+                <?php elseif ($summary['issues']): ?>
+                    <span class="genc-tmst genc-tmst--done"><i class="fa fa-check-circle"></i> Semua beres</span> &middot; bulan ini <?php echo (int) $summary['issues']; ?> checklist ada temuan
+                <?php else: ?>Tidak ada item <?php echo genc_e(genc_pilihan_label('NOK')); ?> / <?php echo genc_e(genc_pilihan_label('PR')); ?><?php endif; ?>
             </div>
         </a>
 
@@ -219,7 +222,7 @@ $today_day   = (int) date('j');
             <div class="genc-chips" role="tablist" aria-label="Status">
                 <?php
                 $cn = $hari > 0 ? $d['day_counts'] : $summary;   /* [GENC-06OKT26-TANGGAL] angka chip = hari terpilih */
-                $chips = array('semua' => array('Semua', $cn['records']), 'tindakan' => array('Perlu tindakan', $cn['issues']), 'menunggu' => array('Menunggu approval', $cn['pending']));
+                $chips = array('semua' => array('Semua', $cn['records']), 'tindakan' => array('Belum beres', $hari > 0 ? $cn['issues'] : $d['temuan']['rec_open']), 'menunggu' => array('Menunggu approval', $cn['pending']));   /* [GENC-16OKT26-TEMUAN2] Belum beres = checklist yang temuannya masih terbuka */
                 foreach ($chips as $key => $c): ?>
                     <a class="genc-chip<?php echo $status === $key ? ' is-active' : ''; ?>" role="tab" aria-selected="<?php echo $status === $key ? 'true' : 'false'; ?>"
                        href="<?php echo genc_e(genc_url($pg, array_merge($base, array('status' => $key === 'semua' ? '' : $key, 'q' => $q, 'hari' => ($hari > 0 ? $hari : ''))))); ?>">
@@ -249,6 +252,9 @@ $today_day   = (int) date('j');
                     <?php if ($d['can_add'] && $period['is_current'] && $hari === $today_day): ?>
                         <p style="margin-top:14px"><a class="genc-btn genc-btn--primary" href="<?php print_link($pg . '/add' . $uq); ?>"><i class="fa fa-pencil-square-o"></i> Isi checklist hari ini</a></p>
                     <?php endif; ?>
+                <?php elseif ($status === 'tindakan' && $q === ''): /* [GENC-16OKT26-TEMUAN2] */ ?>
+                    <div class="genc-empty__title">Tidak ada checklist yang temuannya belum beres</div>
+                    <p class="genc-muted">Periode <?php echo genc_e($hari > 0 ? $hari_label : $period['label']); ?>. Checklist yang pernah ada temuan tetap ada di <a href="<?php echo genc_e(genc_url($pg, array_merge($base, array('hari' => ($hari > 0 ? $hari : ''))))); ?>">Semua</a> dengan label <span class="genc-tmst genc-tmst--done"><i class="fa fa-check-circle"></i> Beres</span>.</p>
                 <?php elseif ($q !== '' || $status !== 'semua' || $hari > 0): ?>
                     <div class="genc-empty__title">Tidak ada yang cocok dengan filter</div>
                     <p class="genc-muted">Periode <?php echo genc_e($hari > 0 ? $hari_label : $period['label']); ?>. <a href="<?php echo genc_e(genc_url($pg, $base)); ?>">Hapus filter</a></p>
@@ -292,7 +298,7 @@ $today_day   = (int) date('j');
                                 <div class="genc-result">
                                     <?php echo genc_strip(genc_display_row($r), $items); ?>
                                     <span class="genc-result__text">
-                                        <?php if (empty($bad)): ?><?php echo empty($r['_unknown']) ? 'Semua baik' : 'Tidak ada temuan'; ?><?php else: ?><b><?php echo count($bad); ?> perlu tindakan:</b> <?php echo genc_e(implode(', ', $bad)); ?><?php endif; ?>
+                                        <?php if (empty($bad)): ?><?php echo empty($r['_unknown']) ? 'Semua baik' : 'Tidak ada temuan'; ?><?php else: ?><b><?php echo count($bad); ?> perlu tindakan:</b> <?php echo genc_e(implode(', ', $bad)); ?><?php echo isset($r['_tm']) ? ' ' . genc_tm_badge($r['_tm']) : ''; /* [GENC-16OKT26-TEMUAN2] checklist tetap tercatat apa adanya; label = status temuannya */ ?><?php endif; ?>
                                         <?php if (!empty($r['_unknown'])): ?><span class="genc-legacy-note" title="Diisi lewat form lama (teks bebas). Kotak abu-abu = isian yang tidak bisa dibaca sebagai <?php echo genc_e(genc_pilihan_label('OK') . ' / ' . genc_pilihan_label('NOK')); ?>."><?php echo (int) $r['_unknown']; ?> isian lama tidak terbaca</span><?php endif; ?>
                                     </span>
                                 </div>

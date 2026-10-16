@@ -31,10 +31,10 @@
  *    palletmover/approve/{id}          -> approve() (POST) <- ACL baru, database/genc_palletmover_24sept26.sql
  *
  *  Menu tingkat atas "Approval" (palletmover/approval) & "NOK History"
- *  (palletmover/uncompleted) dulu halaman daftar pallet mover + tombol lintas
- *  mesin (Pallet Mover / Forklift / Geprek). Sekarang (K28): halaman RINGKASAN
- *  SEMUA MESIN - tiap mesin & unit dengan jumlah checklist yang menunggu approval
- *  / perlu tindakan, klik = daftar Gen C mesin itu yang sudah tersaring.
+ *  (palletmover/uncompleted) dulu halaman daftar pallet mover (phpRAD), lalu
+ *  ringkasan semua mesin (K28) yang menumpang di controller ini.
+ *  [GENC-16OKT26-PANTAU] Sekarang di PantauController (pantau/approval &
+ *  pantau/temuan); dua route lama di sini hanya mengarahkan ke sana.
  *
  *  Route lama lain (K3), diarahkan:
  *    palletmover1..4, palletstacker   -> palletmover?unit=<slug>  (bulan/tahun/format ikut)
@@ -144,7 +144,7 @@ class PalletmoverController extends GencChecklistBase{
 	/** Form approve lama per record -> halaman detail (tombol Approve ada di sana). */
 	function approvalbtn($rec_id = null, $formdata = null){
 		$id = (int) $rec_id;
-		return $this->redirect($id > 0 ? "palletmover/view/" . $id : "palletmover/approval");
+		return $this->redirect($id > 0 ? "palletmover/view/" . $id : "pantau/approval");   // [GENC-16OKT26-PANTAU]
 	}
 
 	/** Edit sebaris (inline) daftar lama - tidak dipakai lagi: ubah lewat form supaya kondisi dihitung ulang. */
@@ -154,123 +154,30 @@ class PalletmoverController extends GencChecklistBase{
 	}
 
 	// =====================================================================
-	//  MENU "APPROVAL" & "NOK HISTORY" - RINGKASAN SEMUA MESIN (K28)
+	//  [GENC-16OKT26-PANTAU] Menu "Approval" & "NOK History" sudah PINDAH ke PantauController
+	//  (pantau/approval & pantau/temuan). Dua route lama di bawah hanya mengarahkan ke sana
+	//  (bulan / tahun / tab ikut), supaya bookmark & link lama tetap jalan.
 	// =====================================================================
 
-	/** Menu "Approval": semua mesin, jumlah checklist yang menunggu approval per unit. */
+	/** Route lama menu "Approval" -> pantau/approval. */
 	function approval($fieldname = null, $fieldvalue = null){
-		return $this->palletmover_hub('menunggu');
+		return $this->redirect('pantau/approval' . $this->palletmover_keep_query(array('bulan', 'tahun')));
 	}
 
-	/** Menu "NOK History": semua mesin, jumlah checklist yang perlu tindakan per unit. */
+	/** Route lama menu "NOK History" -> pantau/temuan. */
 	function uncompleted($fieldname = null, $fieldvalue = null){
-		return $this->palletmover_hub('tindakan');
+		return $this->redirect('pantau/temuan' . $this->palletmover_keep_query(array('bulan', 'tahun', 'tab', 'f', 'buka')));
 	}
 
-	/**
-	 * Mesin di halaman ringkasan, urut sama dengan menu Autonomous Maintenance.
-	 * 'pages' = route (= nama controller); tiap route punya cetakan Gen C sendiri.
-	 */
-	protected function palletmover_hub_machines(){
-		return genc_reg_hub_machines();   // [GENC-06OKT26-MESIN] 6 mesin bawaan (urut sama) + tambahan dari menu Mesin & Unit
-	}
-
-	/**
-	 * Hitung per unit (bulan terpilih): menunggu approval & perlu tindakan.
-	 * Penilaian memakai cetakan milik mesin itu sendiri (profil, peta nilai lama,
-	 * status approval lama) -> angka di sini = angka KPI di halaman mesinnya.
-	 * Mesin yang role ini tidak punya <page>/list tidak ditampilkan.
-	 */
-	protected function palletmover_hub($mode){
-		$period = $this->genc_period($this->request);
-		$groups = array();
-		$tot = array('menunggu' => 0, 'tindakan' => 0);
-		foreach($this->palletmover_hub_machines() as $m){
-			$rows = array();
-			foreach($m['pages'] as $page){
-				if(!ACL::is_allowed($page . '/list')){ continue; }
-				if($page === 'palletmover'){ $ctl = $this; }
-				else{
-					$ctl = genc_reg_controller($page);   // [GENC-06OKT26-MESIN] juga route am_* (tanpa file controller)
-					if(!($ctl instanceof GencChecklistBase)){ continue; }
-				}
-				foreach($this->palletmover_hub_rows($ctl, $page, $period) as $r){ $rows[] = $r; }
+	/** Query string untuk pengalihan: hanya parameter yang dikenal, nilai dibersihkan. */
+	protected function palletmover_keep_query($keys){
+		$q = array();
+		foreach($keys as $k){
+			if(isset($this->request->$k) && !is_array($this->request->$k)){
+				$v = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $this->request->$k);
+				if($v !== ''){ $q[$k] = $v; }
 			}
-			if(empty($rows)){ continue; }
-			$sum = array('menunggu' => 0, 'tindakan' => 0);
-			foreach($rows as $r){ $sum['menunggu'] += $r['menunggu']; $sum['tindakan'] += $r['tindakan']; }
-			$tot['menunggu'] += $sum['menunggu'];
-			$tot['tindakan'] += $sum['tindakan'];
-			$groups[] = array('title' => $m['title'], 'icon' => isset($m['icon']) ? $m['icon'] : '', 'rows' => $rows, 'sum' => $sum);   // [GENC-08OKT26-HUB] + ikon
 		}
-		$data = array(
-			'mode'   => $mode,
-			'period' => $period,
-			'groups' => $groups,
-			'total'  => $tot,
-		);
-		$this->view->page_title = ($mode === 'menunggu' ? 'Approval' : 'NOK History') . ' - semua mesin';
-		return $this->render_view("_shared/genc/hub.php", $data);
-	}
-
-	/** Baris ringkasan satu route: 1 baris per unit (mesin 1 unit: 1 baris). Link dibentuk di view. */
-	protected function palletmover_hub_rows($ctl, $page, $period){
-		$conf = $ctl->genc_c();
-		// label pendek dari tab (PM 1, TTL 6, KIR3, 608FD18...), kelompok dari tab
-		$tab_label = array(); $tab_group = array(); $tab_sub = array();
-		foreach($conf['tabs'] as $t){
-			if($t['page'] !== $page){ continue; }
-			$k = isset($t['unit']) ? (string) $t['unit'] : '';
-			$tab_label[$k] = $t['label'];
-			$tab_group[$k] = isset($t['group']) ? (string) $t['group'] : '';
-			$tab_sub[$k]   = isset($t['sub']) ? (string) $t['sub'] : '';
-		}
-		$count = function($rows, $items) use ($ctl){
-			$n = array('menunggu' => 0, 'tindakan' => 0);
-			foreach($rows as $r){
-				if(!$ctl->genc_is_approved($r)){ $n['menunggu']++; }
-				if(!$ctl->genc_is_ok($r, $items)){ $n['tindakan']++; }
-			}
-			return $n;
-		};
-		$out = array();
-		$units = $ctl->genc_units();
-		if(empty($units)){
-			$n = $count($ctl->genc_month_rows($period['bulan'], $period['tahun']), $ctl->genc_items());
-			if(genc_reg_is_archived($page, '')){ return $out; }   // [GENC-08OKT26-P3] arsip: keluar dari ringkasan
-			if(genc_reg_is_inactive($page, '') && ($n['menunggu'] + $n['tindakan']) === 0){ return $out; }   // [GENC-06OKT26-MESIN] nonaktif & beres: tidak tampil
-			$out[] = array(
-				'label' => isset($tab_label['']) ? $tab_label[''] : $conf['title'],
-				'group' => '', 'sub' => (isset($tab_sub['']) ? $tab_sub[''] : ''),
-				'menunggu' => $n['menunggu'], 'tindakan' => $n['tindakan'],
-				'page' => $page, 'unit' => '',
-			);
-			return $out;
-		}
-		$other = null;
-		foreach($units as $slug => $u){
-			$ctl->genc_set_unit_ctx($slug);                     // profil unit ini (forklift electric/diesel, stacker)
-			$all = $ctl->genc_month_rows($period['bulan'], $period['tahun']);
-			$n = $count($ctl->genc_filter_unit($all, $slug), $ctl->genc_items());
-			if($other === null){ $other = $count($ctl->genc_filter_unit($all, self::UNIT_OTHER), $ctl->genc_items()); }
-			if(!empty($u['archived']) || genc_reg_is_archived($page, '')){ continue; }   // [GENC-08OKT26-P3] arsip: keluar dari ringkasan
-			if((!empty($u['inactive']) || genc_reg_is_inactive($page, '')) && ($n['menunggu'] + $n['tindakan']) === 0){ continue; }   // [GENC-06OKT26-MESIN] nonaktif & beres: tidak tampil
-			$out[] = array(
-				'label' => isset($tab_label[$slug]) ? $tab_label[$slug] : $u['label'],
-				'group' => isset($tab_group[$slug]) ? $tab_group[$slug] : '',
-				'sub'   => $u['label'],
-				'menunggu' => $n['menunggu'], 'tindakan' => $n['tindakan'],
-				'page' => $page, 'unit' => $slug,
-			);
-		}
-		// record lama dengan nomor unit yang tidak dikenal -> baris sendiri, hanya kalau ada isinya
-		if($other !== null && ($other['menunggu'] + $other['tindakan']) > 0){
-			$out[] = array(
-				'label' => 'Unit tidak dikenal', 'group' => '', 'sub' => 'nomor unit di data lama tidak cocok',
-				'menunggu' => $other['menunggu'], 'tindakan' => $other['tindakan'],
-				'page' => $page, 'unit' => self::UNIT_OTHER,
-			);
-		}
-		return $out;
+		return $q ? '?' . http_build_query($q) : '';
 	}
 }

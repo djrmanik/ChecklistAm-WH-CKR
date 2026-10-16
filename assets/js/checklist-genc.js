@@ -12,8 +12,9 @@
      form[data-genc-checklist] progress, keterangan wajib bila ada NOK/PR,
                                validasi sebelum kirim, peringatan keluar halaman
      .genc-toast               hilang sendiri setelah 6 detik
-     [data-genc-folds]         [GENC-08OKT26-HUB] kartu mesin lipat (Home, Approval, NOK History):
-                               awal tertutup, yang dibuka diingat per halaman (browser ini), Buka / Tutup semua
+     [data-genc-folds]         [GENC-08OKT26-HUB] kartu mesin lipat (tidak dipakai lagi sejak 16 Okt, dibiarkan)
+     [data-genc-panel]         [GENC-16OKT26-PANEL] panel ala Looker: isi digulir, footer "1–6 / 22"
+     [data-genc-modal-open]    [GENC-16OKT26-PANTAU] pop-up (NOK History per unit): Perbesar, Esc / klik luar = tutup
    ========================================================================= */
 (function () {
     'use strict';
@@ -27,13 +28,93 @@
         return null;
     }
 
+    /* ------------------------------------------------------------ panel ala Looker  [GENC-16OKT26-PANEL] */
+    function panelRange(p) {
+        var body = p.querySelector('.genc-panel__body'), out = p.querySelector('[data-genc-prange]');
+        if (!body || !out) { return; }
+        if (out.__gencBase === undefined) { out.__gencBase = out.textContent; }
+        var rows = $all('[data-genc-prow]', body), n = rows.length;
+        var scroll = body.scrollHeight > body.clientHeight + 2;
+        p.classList.toggle('is-scrollable', scroll);
+        if (!scroll || !n) { out.textContent = out.__gencBase; return; }
+        var top = body.getBoundingClientRect().top, bot = top + body.clientHeight, a = 0, b = 0;
+        rows.forEach(function (r, i) {
+            var rr = r.getBoundingClientRect();
+            if (rr.bottom > top + 4 && rr.top < bot - 4) { if (!a) { a = i + 1; } b = i + 1; }
+        });
+        out.textContent = (a || 1) + '–' + (b || n) + ' / ' + n;
+    }
+    function panelsAll() { $all('[data-genc-panel]').forEach(panelRange); }
+    $all('[data-genc-panel]').forEach(function (p) {
+        var body = p.querySelector('.genc-panel__body');
+        if (body) { body.addEventListener('scroll', function () { panelRange(p); }, { passive: true }); }
+        if (window.ResizeObserver) { try { new window.ResizeObserver(function () { panelRange(p); }).observe(p); } catch (e) { /* lewati */ } }
+    });
+    window.addEventListener('resize', panelsAll);
+    window.GENC_PANELS = panelsAll;   // dipanggil Mode edit sesudah ukuran panel diubah
+    panelsAll();
+
+    /* ------------------------------------------------------------ pop-up  [GENC-16OKT26-PANTAU] */
+    var modalBack = null;
+    function modalOpen(m, from) {
+        if (!m) { return; }
+        $all('[data-genc-modal].is-open').forEach(function (o) { if (o !== m) { modalClose(o, true); } });
+        m.hidden = false; m.classList.add('is-open');
+        document.documentElement.classList.add('genc-modal-on');
+        modalBack = from || modalBack;
+        var f = m.querySelector('[data-genc-modal-close]') || m.querySelector('button, a[href]');
+        if (f) { try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); } }
+    }
+    function modalClose(m, keep) {
+        if (!m) { return; }
+        m.classList.remove('is-open', 'is-max'); m.hidden = true;
+        if (!$all('[data-genc-modal].is-open').length) { document.documentElement.classList.remove('genc-modal-on'); }
+        if (!keep) {
+            try { var u = new URL(location.href); if (u.searchParams.has('buka')) { u.searchParams.delete('buka'); u.hash = ''; history.replaceState(null, '', u.toString()); } } catch (e) { /* lewati */ }
+            if (modalBack && modalBack.focus) { try { modalBack.focus({ preventScroll: true }); } catch (e2) { modalBack.focus(); } }
+            modalBack = null;
+        }
+    }
+    document.addEventListener('click', function (e) {
+        var op = closest(e.target, '[data-genc-modal-open]');
+        if (op && !e.defaultPrevented && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+            var m = document.getElementById(op.getAttribute('data-genc-modal-open'));
+            if (m) {
+                e.preventDefault(); modalOpen(m, op);
+                try { var u = new URL(op.href, location.href); history.replaceState(null, '', u.pathname + u.search); } catch (e3) { /* lewati */ }
+            }
+            return;
+        }
+        var cl = closest(e.target, '[data-genc-modal-close]');
+        if (cl) { e.preventDefault(); modalClose(closest(cl, '[data-genc-modal]')); return; }
+        var mx = closest(e.target, '[data-genc-modal-max]');
+        if (mx) {
+            var mm = closest(mx, '[data-genc-modal]'); var on = !mm.classList.contains('is-max');
+            mm.classList.toggle('is-max', on);
+            var ic = mx.querySelector('.fa'); if (ic) { ic.className = 'fa ' + (on ? 'fa-compress' : 'fa-expand'); }
+            mx.setAttribute('aria-label', on ? T('Perkecil') : T('Perbesar'));
+            return;
+        }
+        if (e.target && e.target.matches && e.target.matches('[data-genc-modal].is-open')) { modalClose(e.target); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' && e.key !== 'Esc') { return; }
+        var o = $all('[data-genc-modal].is-open'); if (o.length) { modalClose(o[o.length - 1]); }
+    });
+    $all('[data-genc-modal].is-open').forEach(function (m) { modalOpen(m, null); });
+
     /* ------------------------------------------------------------ kartu lipat  [GENC-08OKT26-HUB] */
     $all('[data-genc-folds]').forEach(function (wrap) {
         var key = 'genc-fold:' + wrap.getAttribute('data-genc-folds');
         var cards = $all('[data-genc-fold]', wrap);
         var all = document.querySelector('[data-genc-fold-all="' + wrap.getAttribute('data-genc-folds') + '"]');
         var open = [];
-        try { open = JSON.parse(window.localStorage.getItem(key) || '[]') || []; } catch (e) { open = []; }
+        var saved = null;
+        try { saved = window.localStorage.getItem(key); open = JSON.parse(saved || '[]') || []; } catch (e) { open = []; }
+        /* [GENC-15OKT26-TEMUAN] data-genc-fold-auto: belum pernah diatur di browser ini -> kartu yang ada isinya terbuka */
+        if (saved === null && wrap.hasAttribute('data-genc-fold-auto')) {
+            open = cards.filter(function (c) { return c.classList.contains('has-items'); }).map(function (c) { return c.getAttribute('data-genc-fold'); });
+        }
         function set(card, on) {
             card.classList.toggle('is-closed', !on);
             var b = card.querySelector('[data-genc-fold-btn]');

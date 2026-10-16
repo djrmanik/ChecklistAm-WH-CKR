@@ -49,6 +49,8 @@ $multi    = !empty($g['multi']);
     if ($multi) { $bq = array('unit' => $g['unit']) + $bq; }
     $back     = $pg . '?' . http_build_query($bq);
     $jam      = genc_time($r['date_created']);
+    $tm       = isset($d['temuan']) ? $d['temuan'] : null;   // [GENC-16OKT26-TEMUAN2] status temuan checklist ini
+    $ok_lbl   = genc_pilihan_label('OK');
 ?>
     <div class="genc-header">
         <div>
@@ -83,6 +85,18 @@ $multi    = !empty($g['multi']);
             <div class="genc-notice genc-notice--warn"><i class="fa fa-question-circle"></i>
                 <div><strong>Nomor unit di checklist lama ini tidak dikenali</strong> (&ldquo;<?php echo genc_e($r['_unit_raw'] !== '' ? $r['_unit_raw'] : '(kosong)'); ?>&rdquo;). Data tetap tersimpan apa adanya, tapi tidak masuk report unit mana pun.</div></div>
         <?php endif; ?>
+        <?php if ($tm && ($tm['open'] + $tm['done']) > 0): /* [GENC-16OKT26-TEMUAN2] */ ?>
+            <?php if ($tm['open'] === 0): ?>
+            <div class="genc-notice genc-notice--ok"><i class="fa fa-check-circle"></i>
+                <div><strong>Temuan di checklist ini sudah beres.</strong> Semua item yang <?php echo genc_e(genc_pilihan_label('NOK') . ' / ' . genc_pilihan_label('PR')); ?> dinilai <?php echo genc_e($ok_lbl); ?> lagi paling lambat di checklist
+                    <?php if (!empty($d['can_view_all'])): ?><a href="<?php echo genc_e(genc_url($pg . '/view/' . (int) $tm['end_id'])); ?>"><?php echo genc_e(genc_date($tm['end_date'])); ?></a><?php else: ?><?php echo genc_e(genc_date($tm['end_date'])); ?><?php endif; ?><?php echo $tm['end_user'] !== '' ? ' (dicek ' . genc_e(genc_person_name($tm['end_user'])) . ')' : ''; ?>.
+                    Checklist ini tetap tercatat apa adanya.</div></div>
+            <?php else: ?>
+            <div class="genc-notice genc-notice--warn"><i class="fa fa-clock-o"></i>
+                <div><strong><?php echo (int) $tm['open']; ?> temuan belum beres<?php echo $tm['done'] ? ' &middot; ' . (int) $tm['done'] . ' sudah beres' : ''; ?>.</strong> Status berubah jadi beres otomatis begitu checklist berikutnya untuk unit ini menilai item itu <?php echo genc_e($ok_lbl); ?>.
+                    <?php if (ACL::is_allowed('pantau/temuan')): ?><a href="<?php echo genc_e(genc_url('pantau/temuan', array('buka' => genc_tm_key($pg, $multi ? (string) $r['_unit'] : '', $multi && $r['_unit'] === 'lainnya' ? (string) $r['_unit_raw'] : '')))); ?>">Lihat di NOK History</a><?php endif; ?></div></div>
+            <?php endif; ?>
+        <?php endif; ?>
         <?php if ($unknown > 0): ?>
             <div class="genc-notice genc-notice--info"><i class="fa fa-history"></i>
                 <div><strong><?php echo $unknown; ?> isian lama tidak terbaca</strong> (diketik bebas di form lama). Ditampilkan abu-abu apa adanya dan tidak dihitung sebagai temuan.</div></div>
@@ -94,6 +108,7 @@ $multi    = !empty($g['multi']);
                 <div><div class="genc-meta__k">Hasil</div><div style="margin-top:6px">
                     <?php echo empty($bad) ? '<span class="genc-badge genc-badge--ok"><i class="fa fa-check"></i> Semua baik</span>'
                                           : '<span class="genc-badge genc-badge--nok"><i class="fa fa-exclamation-triangle"></i> ' . count($bad) . ' perlu tindakan</span>'; ?>
+                    <?php if ($tm): ?><div style="margin-top:6px"><?php echo genc_tm_badge($tm); ?></div><?php endif; ?>
                 </div></div>
                 <div><div class="genc-meta__k">Approval</div><div style="margin-top:6px"><?php echo genc_approval_badge($r); ?>
                     <?php if ($approved && !empty($r['date_approve'])): ?><div class="genc-small genc-muted"><?php echo genc_e(trim(genc_date($r['date_approve']) . ' ' . genc_time($r['date_approve']))); ?></div><?php endif; ?>
@@ -140,6 +155,10 @@ $multi    = !empty($g['multi']);
                         <div>
                             <div class="genc-strong"><?php echo genc_e($it['part']); ?></div>
                             <div class="genc-small genc-muted">Standar: <?php echo genc_e($it['standar']); ?></div>
+                            <?php if ($tm && isset($tm['items'][$it['db']])): $te = $tm['items'][$it['db']]; /* [GENC-16OKT26-TEMUAN2] */ ?>
+                                <div class="genc-item__tm"><?php if ($te['end_id'] === null): ?><span class="genc-tmst genc-tmst--open"><i class="fa fa-clock-o"></i> Belum beres</span> sejak <?php echo genc_e(genc_tm_tgl($te['start_date'])); ?>
+                                <?php else: ?><span class="genc-tmst genc-tmst--done"><i class="fa fa-check-circle"></i> <?php echo genc_e($ok_lbl); ?> lagi</span> <?php if (!empty($d['can_view_all'])): ?><a href="<?php echo genc_e(genc_url($pg . '/view/' . (int) $te['end_id'])); ?>"><?php echo genc_e(genc_tm_tgl($te['end_date'])); ?></a><?php else: ?><?php echo genc_e(genc_tm_tgl($te['end_date'])); ?><?php endif; ?><?php echo $te['end_user'] !== '' ? ' &middot; dicek ' . genc_e(genc_person_name($te['end_user'])) : ''; ?><?php endif; ?></div>
+                            <?php endif; ?>
                             <?php if (isset($legacy[$it['db']]) && $m['key'] !== ''): ?><div class="genc-item__legacy"><i class="fa fa-history"></i> Isian lama: &ldquo;<?php echo genc_e($legacy[$it['db']]); ?>&rdquo;</div><?php endif; ?>
                         </div>
                         <div><?php echo $m['key'] === '' && trim((string) $v) === '' ? '<span class="genc-badge">Kosong</span>' : genc_value_badge($v); ?></div>

@@ -27,6 +27,13 @@ class ACL
 	public static $exclude_page_check = array("", "index", "home", "account", "info", "masterdetail");
 
 	/**
+	 * [GENC-16OKT26-PANTAU] route baru => route lama (hak akses yang sama).
+	 * Dipakai juga oleh matriks Role Permissions & Mode edit tampilan.
+	 * @var array
+	 */
+	public static $alias = array("pantau/approval" => "palletmover/approval", "pantau/temuan" => "palletmover/uncompleted");
+
+	/**
 	 * get the list of pages user role has access to
 	 */
 	public function __construct()
@@ -39,7 +46,13 @@ class ACL
 			
 			$roles_permission = $db->get("role_permissions", null, $fields);
 			self:: $role_pages = array_column($roles_permission, "page"); //list all pages for the user role
-			
+			// [GENC-16OKT26-PANTAU] Approval & NOK History pindah dari palletmover/* ke pantau/* (controller sendiri).
+			// Hak akses lama di database tetap berlaku untuk route baru (dan sebaliknya) -> tanpa SQL wajib.
+			foreach(self::$alias as $new => $old){
+				if(in_array($old, self::$role_pages, true) && !in_array($new, self::$role_pages, true)){ self::$role_pages[] = $new; }
+				if(in_array($new, self::$role_pages, true) && !in_array($old, self::$role_pages, true)){ self::$role_pages[] = $old; }
+			}
+
 			//get user role name
 			self::$user_role = $db->where("role_id", USER_ROLE)->getValue("roles", "role_name");
 		}

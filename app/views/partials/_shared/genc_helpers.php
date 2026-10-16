@@ -12,7 +12,7 @@
 require_once __DIR__ . '/checklist_helpers.php'; // checklist_user_initial(), checklist_display_name(), checklist_nama_bulan()
 
 /** Versi aset - ganti angka ini kalau CSS/JS diubah, supaya browser tidak pakai cache lama. */
-if (!defined('GENC_ASSET_VERSION')) { define('GENC_ASSET_VERSION', '2026101402'); } // [GENC-14OKT26-SUSUNAN/TEMA] susunan, posisi bebas, tema (dulu 2026101401) // [GENC-13OKT26-TAMPILAN] Mode edit tampilan 4A (dulu 2026101302) // [GENC-13OKT26c] riwayat hapus permanen ringkas (dulu 2026101301) [GENC-13OKT26] riwayat ringkas + layar penuh, hapus permanen (dulu 2026100803) // [GENC-08OKT26-P3] paket 3 (dulu 2026100801) [GENC-08OKT26] kartu mesin lipat, mesin aktif/nonaktif, 80 ikon + cari (dulu 2026100701) [GENC-07OKT26-FOTO] banyak foto per item, kolase gambar bagian mesin (dulu 2026100603) [GENC-06OKT26] Mesin & Unit, tab banyak, inisial, tanggal bisa diklik, isi bawaan + kunci (dulu 2026100602)
+if (!defined('GENC_ASSET_VERSION')) { define('GENC_ASSET_VERSION', '2026101601'); } // [GENC-16OKT26] status temuan di semua halaman, Pantau, panel scroll, Mode edit bebas penuh + ikon (dulu 2026101501) // [GENC-15OKT26-TEMUAN] NOK History = temuan + status beres (dulu 2026101403) // [GENC-14OKT26-TEKS2/KOTAK] teks dinamis, hapus teks, teks tambahan, susunan isi kartu (dulu 2026101402) // [GENC-14OKT26-SUSUNAN/TEMA] susunan, posisi bebas, tema (dulu 2026101401) // [GENC-13OKT26-TAMPILAN] Mode edit tampilan 4A (dulu 2026101302) // [GENC-13OKT26c] riwayat hapus permanen ringkas (dulu 2026101301) [GENC-13OKT26] riwayat ringkas + layar penuh, hapus permanen (dulu 2026100803) // [GENC-08OKT26-P3] paket 3 (dulu 2026100801) [GENC-08OKT26] kartu mesin lipat, mesin aktif/nonaktif, 80 ikon + cari (dulu 2026100701) [GENC-07OKT26-FOTO] banyak foto per item, kolase gambar bagian mesin (dulu 2026100603) [GENC-06OKT26] Mesin & Unit, tab banyak, inisial, tanggal bisa diklik, isi bawaan + kunci (dulu 2026100602)
 
 if (!function_exists('genc_e')) {
     function genc_e($v) { return htmlspecialchars((string) ($v === null ? '' : $v), ENT_QUOTES, 'UTF-8'); }
@@ -143,6 +143,54 @@ if (!function_exists('genc_strip')) {
             $html .= '<span class="genc-strip__i' . ($m['key'] ? ' genc-strip__i--' . $m['key'] : '') . '" title="' . genc_e($it['no'] . '. ' . $it['part'] . ': ' . $m['label']) . '"></span>';
         }
         return $html . '</span>';
+    }
+}
+
+/* ---------------------------------------------------------------- [GENC-16OKT26-TEMUAN2] status temuan */
+
+/** Kunci unit untuk pop-up NOK History (?buka=). Sama di Home, halaman mesin & NOK History. */
+if (!function_exists('genc_tm_key')) {
+    function genc_tm_key($page, $unit, $raw = '') { return 'u' . substr(md5($page . '|' . $unit . '|' . $raw), 0, 10); }
+}
+
+/** Tanggal pendek temuan: "Rab 14 Okt" (+ tahun kalau bukan tahun ini). */
+if (!function_exists('genc_tm_tgl')) {
+    function genc_tm_tgl($ymd) {
+        $ts = strtotime((string) $ymd);
+        if (!$ts) { return (string) $ymd; }
+        $bln = checklist_nama_bulan();
+        $s = substr(genc_nama_hari($ts), 0, 3) . ' ' . date('j', $ts) . ' ' . substr($bln[(int) date('n', $ts)], 0, 3);
+        return (int) date('Y', $ts) !== (int) date('Y') ? $s . ' ' . date('Y', $ts) : $s;
+    }
+}
+
+/** Lama temuan: "hari ini" / "1 hari" (masih terbuka) atau "hari itu juga" / "2 hari" (sudah beres). */
+if (!function_exists('genc_tm_lama')) {
+    function genc_tm_lama($n, $open) {
+        $gx = function ($s) { return function_exists('gx_lit') ? gx_lit($s, 'partials/_shared/genc_helpers.php') : $s; };
+        if ((int) $n <= 0) { return $open ? $gx('hari ini') : $gx('hari itu juga'); }
+        return (int) $n . ' ' . $gx('hari');
+    }
+}
+
+/**
+ * Label status temuan sebuah checklist (baris daftar & detail). Checklist-nya sendiri tetap tercatat NOK/PR;
+ * label ini hanya bilang apakah temuan itu sudah dinilai Baik lagi di checklist berikutnya.
+ * $st = '_tm' dari GencChecklistBase::genc_attach_temuan() / genc_temuan_rec_status().
+ */
+if (!function_exists('genc_tm_badge')) {
+    function genc_tm_badge($st) {
+        if (!$st || ($st['open'] + $st['done']) === 0) { return ''; }
+        $gx = function ($s) { return function_exists('gx_lit') ? gx_lit($s, 'partials/_shared/genc_helpers.php') : $s; };
+        if ($st['open'] === 0) {
+            $tip = genc_pilihan_label('OK') . ' lagi di checklist ' . genc_date($st['end_date']) . ($st['end_user'] !== '' ? ', dicek ' . genc_person_name($st['end_user']) : '');
+            return '<span class="genc-tmst genc-tmst--done" title="' . genc_e($tip) . '"><i class="fa fa-check-circle" aria-hidden="true"></i> ' . $gx('Beres') . ' ' . genc_e(genc_tm_tgl($st['end_date'])) . '</span>';
+        }
+        if ($st['done'] === 0) {
+            return '<span class="genc-tmst genc-tmst--open"><i class="fa fa-clock-o" aria-hidden="true"></i> ' . $gx('Belum beres') . '</span>';
+        }
+        return '<span class="genc-tmst genc-tmst--part" title="' . genc_e($st['open'] . ' item masih belum ' . genc_pilihan_label('OK')) . '"><i class="fa fa-adjust" aria-hidden="true"></i> '
+             . (int) $st['done'] . ' ' . $gx('dari') . ' ' . (int) ($st['open'] + $st['done']) . ' ' . $gx('beres') . '</span>';
     }
 }
 

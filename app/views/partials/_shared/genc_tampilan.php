@@ -26,7 +26,7 @@ if (!function_exists('gx_state')) {
     define('GX_A', "\xEE\x80\x80");   // awal penanda
     define('GX_B', "\xEE\x80\x81");   // pemisah id | teks
     define('GX_C', "\xEE\x80\x82");   // akhir penanda
-    define('GX_VER', '2026101402');   // versi format penanda (cache)
+    define('GX_VER', '2026101403');   // versi format penanda (cache)
     /** Atribut yang isinya teks untuk dibaca orang (bisa diubah). Atribut lain: penanda dibuang. */
     define('GX_ATTRS', 'placeholder|title|aria-label|alt|data-label|data-genc-confirm|data-genc-confirm-msg|data-genc-confirm-ok|data-gs-busy|data-prompt-msg|data-loading-msg|data-available-msg|data-unavailable-msg|data-gm-confirm|data-gm-msg');
 
@@ -80,7 +80,7 @@ if (!function_exists('gx_state')) {
     /** Bentuk konfigurasi tampilan yang selalu lengkap. */
     function gx_conf_norm($c) {
         $c = is_array($c) ? $c : array();
-        foreach (array('teks', 'susunan', 'tema') as $k) { if (!isset($c[$k]) || !is_array($c[$k])) { $c[$k] = array(); } }
+        foreach (array('teks', 'susunan', 'tema', 'kotak', 'ikon') as $k) { if (!isset($c[$k]) || !is_array($c[$k])) { $c[$k] = array(); } }   // [GENC-16OKT26-IKON] + ikon
         return $c;
     }
 
@@ -120,7 +120,7 @@ if (!function_exists('gx_state')) {
 
     function gx_draft_norm($d) {
         $d = is_array($d) ? $d : array();
-        foreach (array('teks', 'data', 'susunan', 'tema') as $k) { if (!isset($d[$k]) || !is_array($d[$k])) { $d[$k] = array(); } }
+        foreach (array('teks', 'data', 'susunan', 'tema', 'kotak', 'ikon') as $k) { if (!isset($d[$k]) || !is_array($d[$k])) { $d[$k] = array(); } }
         if (!isset($d['base'])) { $d['base'] = 0; }
         return $d;
     }
@@ -150,6 +150,8 @@ if (!function_exists('gx_state')) {
         if (!$d) { return 0; }
         $n = count($d['teks']) + count($d['data']) + count($d['tema']);
         foreach ($d['susunan'] as $grp) { $n += count((array) $grp); }
+        foreach ($d['kotak'] as $grp) { $n += count((array) $grp); }
+        foreach ($d['ikon'] as $grp) { $n += count((array) $grp); }   // [GENC-16OKT26-IKON]
         return $n;
     }
 
@@ -169,6 +171,18 @@ if (!function_exists('gx_state')) {
         }
         foreach ($d['tema'] as $k => $v) {
             if ($v === null) { unset($conf['tema'][$k]); } else { $conf['tema'][$k] = $v; }
+        }
+        foreach ($d['kotak'] as $sk => $grp) {   // [GENC-14OKT26-KOTAK] teks tambahan per cakupan (p|halaman / g) -> id
+            foreach ((array) $grp as $id => $v) {
+                if ($v === null) { unset($conf['kotak'][$sk][$id]); } else { $conf['kotak'][$sk][$id] = $v; }
+            }
+            if (isset($conf['kotak'][$sk]) && !$conf['kotak'][$sk]) { unset($conf['kotak'][$sk]); }
+        }
+        foreach ($d['ikon'] as $sk => $grp) {   // [GENC-16OKT26-IKON] ikon per cakupan (p|halaman / g) -> kunci ikon
+            foreach ((array) $grp as $ik => $v) {
+                if ($v === null) { unset($conf['ikon'][$sk][$ik]); } else { $conf['ikon'][$sk][$ik] = $v; }
+            }
+            if (isset($conf['ikon'][$sk]) && !$conf['ikon'][$sk]) { unset($conf['ikon'][$sk]); }
         }
         return $conf;
     }
@@ -206,7 +220,7 @@ if (!function_exists('gx_state')) {
         $st = array(
             'cur_no' => $cur['no'], 'ok' => $cur['ok'], 'mode' => $mode, 'draft' => $d, 'conf' => $conf,
             'inst' => $mode !== '' || !empty($conf['teks']) || !empty($conf['susunan']),   // susunan: perlu daftar file view yang dipakai halaman
-            'post' => $mode !== '' || !empty($conf['teks']) || !empty($conf['susunan']) || !empty($conf['tema']),
+            'post' => $mode !== '' || !empty($conf['teks']) || !empty($conf['susunan']) || !empty($conf['tema']) || !empty($conf['kotak']),
         );
         return $st;
     }
@@ -239,6 +253,9 @@ if (!function_exists('gx_state')) {
         if ($p === '') { return 'home/index'; }
         if ($a === '' || $a === 'list') { $a = 'index'; }
         if ($p === 'index' && $a === 'login') { $a = 'index'; }   // gagal masuk = halaman Masuk yang sama
+        // [GENC-16OKT26-PANTAU] Approval & NOK History pindah ke pantau/*: kunci teks & susunan tetap kunci lama
+        // (pengaturan Mode edit yang sudah disimpan di halaman itu tetap berlaku)
+        if (class_exists('ACL', false) && isset(ACL::$alias[$p . '/' . $a])) { return ACL::$alias[$p . '/' . $a]; }
         return $p . '/' . $a;
     }
 
@@ -650,7 +667,7 @@ if (!function_exists('gx_state')) {
             foreach ($st['draft']['data'] as $dk => $dv) { if (isset($dv['old'], $dv['new'])) { $dnew[gx_norm($dv['old'])] = array((string) $dv['new'], $dk); } }
         }
         $item = function ($fid, $raw, $ctx) use (&$items, &$ix, $files, $conf, $page) {
-            $rel = isset($files[$fid]) ? $files[$fid] : '?';
+            $rel = $fid === '#' ? '#' : (isset($files[$fid]) ? $files[$fid] : '?');   // '#' = teks dinamis (data / profil / gabungan) tanpa file asal
             $h = gx_h($raw);
             $key = $rel . '|' . $h . '|' . $ctx;
             if (isset($ix[$key])) { return $ix[$key]; }
@@ -659,7 +676,7 @@ if (!function_exists('gx_state')) {
             return $ix[$key] = count($items) - 1;
         };
         $resolve = function ($fid, $raw) use ($files, $conf) {
-            $rel = isset($files[$fid]) ? $files[$fid] : '?';
+            $rel = $fid === '#' ? '#' : (isset($files[$fid]) ? $files[$fid] : '?');
             $r = gx_resolve($conf, $rel, gx_h($raw));
             return $r;
         };
@@ -669,25 +686,48 @@ if (!function_exists('gx_state')) {
         preg_match_all('~<!--.*?-->|<(script|style|textarea|title)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>.*?</\1\s*>|</?[a-zA-Z][^\s/>]*(?:[^>"\']|"[^"]*"|\'[^\']*\')*>~is', $html, $mm, PREG_OFFSET_CAPTURE);
         $out = array(); $pos = 0; $last_tag = -1; $last_name = '';
         $attr_add = array();   // index potongan tag => array('name:N')
-        $proc_text = function ($txt) use (&$out, &$last_tag, &$last_name, &$attr_add, $edit, $mode, $re_m, $item, $resolve, $data, $dnew) {
+        $has_teks = !empty($conf['teks']);
+        $in_tbody = 0;
+        // [GENC-14OKT26-TEKS2] teks tanpa penanda (nama jenis unit, label tab, teks gabungan) = "teks dinamis":
+        // bisa diubah / dihapus per halaman atau semua halaman (kunci p|halaman|h / g|h). Isi tabel data tidak disentuh.
+        $dyn = function ($txt) use ($edit, $mode, $has_teks, &$last_name, &$in_tbody, $item, $resolve) {
+            if ($txt === '' || ($mode === '' && !$has_teks) || $in_tbody > 0) { return $txt; }
+            if (in_array($last_name, array('option', 'optgroup'), true)) { return $txt; }
+            if (!preg_match('/^(\s*)(.*?)(\s*)$/s', $txt, $p) || $p[2] === '' || strlen($p[2]) > 400 || !gx_wordy($p[2])) { return $txt; }
+            $r = $resolve('#', $p[2]);
+            if ($edit) {
+                $n = $item('#', $p[2], 'dyn');
+                $del = $r && $r['t'] === '';
+                return $p[1] . '<gx-t data-gx="' . $n . '"' . ($del ? ' class="gx-del"' : '') . '>' . ($r && !$del ? gx_esc_text($r['t']) : $p[2]) . '</gx-t>' . $p[3];
+            }
+            if ($r && $r['t'] === '') { return $p[1] . '<gx-z></gx-z>' . $p[3]; }   // [GENC-16OKT26-IKON] teks dihapus: penanda kosong (ikon di sebelahnya ikut disembunyikan, genc-susunan.js)
+            return $r ? $p[1] . gx_esc_text($r['t']) . $p[3] : $txt;
+        };
+        $marker = function ($fid, $raw) use ($edit, $item, $resolve, &$attr_add, &$last_tag, &$last_name) {
+            $in_opt = in_array($last_name, array('option', 'optgroup'), true);
+            $r = $resolve($fid, $raw);
+            if ($in_opt) {
+                if ($edit && $last_tag >= 0) { $attr_add[$last_tag][] = 'text:' . $item($fid, $raw, 'option'); }
+                return $r ? gx_esc_text($r['t']) : $raw;
+            }
+            if ($edit) {
+                $n = $item($fid, $raw, 'text');
+                $del = $r && $r['t'] === '';   // teks dihapus: di Mode edit tetap tampil samar (bisa diklik lagi)
+                return '<gx-t data-gx="' . $n . '"' . ($del ? ' class="gx-del"' : '') . '>' . ($r && !$del ? gx_esc_text($r['t']) : $raw) . '</gx-t>';
+            }
+            if ($r && $r['t'] === '') { return '<gx-z></gx-z>'; }   // [GENC-16OKT26-IKON]
+            return $r ? gx_esc_text($r['t']) : $raw;
+        };
+        $proc_text = function ($txt) use (&$last_name, $mode, $re_m, $data, $dnew, $dyn, $marker, $edit) {
             if ($txt === '') { return ''; }
             if (strpos($txt, GX_A) !== false) {
-                $in_opt = in_array($last_name, array('option', 'optgroup'), true);
-                $txt = preg_replace_callback($re_m, function ($m) use ($edit, $item, $resolve, $in_opt, &$attr_add, $last_tag) {
-                    if ($in_opt) {
-                        $r = $resolve($m[1], $m[2]);
-                        if ($edit && $last_tag >= 0) { $attr_add[$last_tag][] = 'text:' . $item($m[1], $m[2], 'option'); }
-                        return $r ? gx_esc_text($r['t']) : $m[2];
-                    }
-                    if ($edit) {
-                        $n = $item($m[1], $m[2], 'text');
-                        $r = $resolve($m[1], $m[2]);
-                        return '<gx-t data-gx="' . $n . '">' . ($r ? gx_esc_text($r['t']) : $m[2]) . '</gx-t>';
-                    }
-                    $r = $resolve($m[1], $m[2]);
-                    return $r ? gx_esc_text($r['t']) : $m[2];
-                }, $txt);
-                return gx_strip($txt);
+                $parts = preg_split($re_m, $txt, -1, PREG_SPLIT_DELIM_CAPTURE);
+                $o = '';
+                for ($i = 0, $n = count($parts); $i < $n; $i++) {
+                    if ($i % 3 === 0) { $o .= $dyn(gx_strip($parts[$i])); }
+                    else { $o .= $marker($parts[$i], $parts[$i + 1]); $i++; }
+                }
+                return $o;
             }
             if ($mode !== '' && ($data || $dnew) && trim($txt) !== '' && !in_array($last_name, array('option', 'optgroup'), true)) {
                 $n = gx_norm($txt);
@@ -701,7 +741,7 @@ if (!function_exists('gx_state')) {
                     return $p[1] . $show . $p[3];
                 }
             }
-            return $txt;
+            return $dyn($txt);
         };
         foreach ($mm[0] as $gi => $g) {
             list($chunk, $off) = $g;
@@ -713,6 +753,7 @@ if (!function_exists('gx_state')) {
             }
             $nm = preg_match('/^<\/?([a-zA-Z][a-zA-Z0-9-]*)/', $chunk, $tn) ? strtolower($tn[1]) : '';
             $closing = $chunk[1] === '/';
+            if ($nm === 'tbody') { $in_tbody = max(0, $in_tbody + ($closing ? -1 : 1)); }
             if (strpos($chunk, GX_A) !== false) {
                 $idx = count($out);
                 $chunk = preg_replace_callback('/([^\s=\/<>"\']+)(\s*=\s*)("([^"]*)"|\'([^\']*)\')/', function ($am) use ($edit, $item, $resolve, &$attr_add, $idx, $re_m) {
@@ -758,11 +799,16 @@ if (!function_exists('gx_state')) {
         $tail = '';
         // [GENC-14OKT26-SUSUNAN] susunan yang berlaku di halaman ini: halaman (p|) + file view yang dipakai (v|)
         $S = gx_susunan_for_page($conf);
+        $X = gx_kotak_for_page($conf);   // [GENC-14OKT26-KOTAK] teks tambahan halaman ini + semua halaman
+        $I = gx_ikon_for_page($conf);    // [GENC-16OKT26-IKON] ikon yang diganti / dihapus: halaman ini + semua halaman
+        $Z = strpos($html, '<gx-z>') !== false;   // ada teks yang dihapus (ikon di sebelahnya ikut disembunyikan)
         $v = defined('GENC_ASSET_VERSION') ? GENC_ASSET_VERSION : '1';
-        if ($S || $st['mode'] !== '') {
+        if ($S || $X || $I || $Z || $st['mode'] !== '') {
             $head .= '<script>window.GX_S=' . json_encode($S ? $S : new stdClass, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) . ';'
+                . 'window.GX_X=' . json_encode($X, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) . ';'
+                . 'window.GX_I=' . json_encode($I ? $I : new stdClass, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) . ';'
                 . ($st['mode'] === 'edit' ? 'window.GX_EDIT=1;' : '')
-                . ($S && $st['mode'] === '' ? 'document.documentElement.className+=" gx-sw";setTimeout(function(){document.documentElement.classList.remove("gx-sw")},1500);' : '') . '</script>';
+                . (($S || $I) && $st['mode'] === '' ? 'document.documentElement.className+=" gx-sw";setTimeout(function(){document.documentElement.classList.remove("gx-sw")},1500);' : '') . '</script>';
             $tail .= '<script src="' . gx_esc_attr(set_url('assets/js/genc-susunan.js')) . '?v=' . $v . '"></script>';
         }
         if ($st['mode'] !== '') {
@@ -773,7 +819,9 @@ if (!function_exists('gx_state')) {
                 'mode' => $st['mode'], 'page' => gx_page(), 'cur' => $st['cur_no'], 'ok' => $st['ok'],
                 'items' => $items, 'count' => gx_draft_count($d), 'base' => $d ? (int) $d['base'] : 0,
                 'stale' => $d && (int) $d['base'] !== 0 && (int) $d['base'] !== (int) $st['cur_no'],
-                'draft' => $d ? array('teks' => (object) $d['teks'], 'data' => (object) $d['data'], 'susunan' => (object) $d['susunan'], 'tema' => (object) $d['tema']) : array('teks' => new stdClass, 'data' => new stdClass, 'susunan' => new stdClass, 'tema' => new stdClass),
+                'draft' => $d ? array('teks' => (object) $d['teks'], 'data' => (object) $d['data'], 'susunan' => (object) $d['susunan'], 'tema' => (object) $d['tema'], 'kotak' => (object) $d['kotak'], 'ikon' => (object) $d['ikon']) : array('teks' => new stdClass, 'data' => new stdClass, 'susunan' => new stdClass, 'tema' => new stdClass, 'kotak' => new stdClass, 'ikon' => new stdClass),
+                'icons' => $st['mode'] === 'edit' ? gx_fa_icons() : array(),          // [GENC-16OKT26-IKON] daftar ikon Font Awesome 4.5 (pemilih ikon)
+                'iconWords' => $st['mode'] === 'edit' ? gx_icon_words() : new stdClass,
                 'tema' => array('aksen' => gx_tema_aksen(), 'status' => gx_tema_status(), 'cur' => (object) $conf['tema'], 'eff' => gx_tema_eff($conf['tema'])),
                 'narrow' => 768,
                 'data' => $st['mode'] === 'edit' ? gx_data_list() : array(),
@@ -809,10 +857,74 @@ if (!function_exists('gx_state')) {
         return $out;
     }
 
+    /** [GENC-16OKT26-IKON] Ikon untuk halaman ini: array('p' => {kunci: spek}, 'g' => {fa-kelas: spek}) atau array(). */
+    function gx_ikon_for_page($conf) {
+        $k = isset($conf['ikon']) ? (array) $conf['ikon'] : array();
+        $out = array();
+        $pk = 'p|' . gx_page();
+        if (!empty($k[$pk])) { $out['p'] = $k[$pk]; }
+        if (!empty($k['g'])) { $out['g'] = $k['g']; }
+        return $out;
+    }
+
+    /** [GENC-16OKT26-IKON] Semua nama ikon Font Awesome yang dimuat aplikasi (4.5) - dari assets/css/font-awesome.min.css. */
+    function gx_fa_icons() {
+        static $list = null;
+        if ($list !== null) { return $list; }
+        $list = array();
+        $css = @file_get_contents(ROOT . 'assets/css/font-awesome.min.css');
+        if ($css && preg_match_all('/\.(fa-[a-z0-9-]+):before/', $css, $m)) { $list = array_values(array_unique($m[1])); sort($list); }
+        return $list;
+    }
+
+    /** Kata kunci bahasa Indonesia untuk ikon (kotak cari), dari daftar ikon menu Mesin & Unit kalau ada. */
+    function gx_icon_words() {
+        $out = array();
+        if (!function_exists('genc_reg_icon_words')) { @include_once __DIR__ . '/genc_registry.php'; }
+        if (function_exists('genc_reg_icon_words')) {
+            try { foreach ((array) genc_reg_icon_words() as $ic => $w) { $out[(string) $ic] = (string) (is_array($w) ? implode(' ', $w) : $w); } } catch (\Throwable $e) { }
+        }
+        return $out ? $out : new stdClass;
+    }
+
+    /** [GENC-16OKT26-IKON] Bersihkan spek ikon: {i: 'fa-x' | '' (dihapus), c: warna, s: ukuran px (0 = bawaan), d: ikon awal}. null = tidak sah. */
+    function gx_ikon_clean($sp) {
+        if (!is_array($sp)) { return null; }
+        $icons = gx_fa_icons();
+        $i = isset($sp['i']) ? strtolower(trim((string) $sp['i'])) : null;
+        if ($i !== null && $i !== '' && !in_array($i, $icons, true)) { return null; }
+        $c = isset($sp['c']) ? (string) $sp['c'] : '';
+        if ($c !== '' && !in_array($c, array('teks', 'redup', 'utama', 'ok', 'nok', 'pr', 'pending'), true) && !gx_hex_ok($c)) { return null; }
+        $s = isset($sp['s']) && is_numeric($sp['s']) ? (int) $sp['s'] : 0;
+        if ($s !== 0) { $s = max(8, min(64, $s)); }
+        $d = isset($sp['d']) ? strtolower((string) $sp['d']) : '';
+        if ($d !== '' && !preg_match('/^fa-[a-z0-9-]{1,40}$/', $d)) { $d = ''; }
+        $out = array();
+        if ($i !== null) { $out['i'] = $i; }
+        if ($c !== '') { $out['c'] = $c; }
+        if ($s) { $out['s'] = $s; }
+        if (!$out) { return null; }
+        if ($d !== '') { $out['d'] = $d; }
+        if (isset($sp['n'])) { $out['n'] = substr(preg_replace('/[\x00-\x1F<>]/', '', (string) $sp['n']), 0, 80); }
+        return $out;
+    }
+
+    /** Teks tambahan untuk halaman ini: [{id, sk, ...spek}] urut n. */
+    function gx_kotak_for_page($conf) {
+        $k = isset($conf['kotak']) ? (array) $conf['kotak'] : array();
+        $out = array();
+        foreach (array('p|' . gx_page(), 'g') as $sk) {
+            if (empty($k[$sk])) { continue; }
+            foreach ((array) $k[$sk] as $id => $sp) { if (is_array($sp)) { $sp['id'] = (string) $id; $sp['sk'] = $sk; $out[] = $sp; } }
+        }
+        usort($out, function ($a, $b) { return (isset($a['n']) ? (int) $a['n'] : 0) - (isset($b['n']) ? (int) $b['n'] : 0); });
+        return $out;
+    }
+
     /** Nama tempat tiap file view yang muncul di halaman (untuk editor). */
     function gx_where_map($items) {
         $out = array();
-        foreach ($items as $it) { if (!isset($out[$it['v']])) { $out[$it['v']] = gx_where_view($it['v']); } }
+        foreach ($items as $it) { if (!isset($out[$it['v']])) { $out[$it['v']] = $it['v'] === '#' ? 'Teks dari data / kode' : gx_where_view($it['v']); } }
         return $out ? $out : new stdClass;
     }
 
@@ -912,6 +1024,40 @@ if (!function_exists('gx_state')) {
                 $nm = $y && isset($y['n']) ? $y['n'] : ($x && isset($x['n']) ? $x['n'] : 'bagian');
                 $pages[$w] = true;
                 $lines[] = array('w' => $w, 'k' => 'susunan:' . $sk . ':' . $ck, 'sec' => 'susunan', 'what' => 'Susunan ' . $nm . ($y === null ? ' kembali ke awal' : ' diubah' . gx_susunan_desc($y)));
+            }
+        }
+        $sks = array_unique(array_merge(array_keys($a['kotak']), array_keys($b['kotak'])));
+        sort($sks);
+        foreach ($sks as $sk) {   // [GENC-14OKT26-KOTAK]
+            $ga = isset($a['kotak'][$sk]) ? (array) $a['kotak'][$sk] : array(); $gb = isset($b['kotak'][$sk]) ? (array) $b['kotak'][$sk] : array();
+            $ids = array_unique(array_merge(array_keys($ga), array_keys($gb)));
+            sort($ids);
+            foreach ($ids as $id) {
+                $x = isset($ga[$id]) ? $ga[$id] : null; $y = isset($gb[$id]) ? $gb[$id] : null;
+                if (gx_json($x) === gx_json($y)) { continue; }
+                $w = $sk === 'g' ? 'Semua halaman' : gx_where_page(substr($sk, 2));
+                $tt = $y ? $y['t'] : $x['t'];
+                $tt = function_exists('mb_substr') ? mb_substr((string) $tt, 0, 60, 'UTF-8') : substr((string) $tt, 0, 60);
+                $pages[$w] = true;
+                $lines[] = array('w' => $w, 'k' => 'kotak:' . $sk . ':' . $id, 'sec' => 'kotak', 'what' => 'Teks tambahan "' . $tt . '" ' . ($x === null ? 'ditambah' : ($y === null ? 'dihapus' : (isset($x['t'], $y['t']) && $x['t'] !== $y['t'] ? 'diubah' : 'dipindah / diatur'))));
+            }
+        }
+        $sks = array_unique(array_merge(array_keys($a['ikon']), array_keys($b['ikon'])));
+        sort($sks);
+        foreach ($sks as $sk) {   // [GENC-16OKT26-IKON]
+            $ga = isset($a['ikon'][$sk]) ? (array) $a['ikon'][$sk] : array(); $gb = isset($b['ikon'][$sk]) ? (array) $b['ikon'][$sk] : array();
+            $ids = array_unique(array_merge(array_keys($ga), array_keys($gb)));
+            sort($ids);
+            foreach ($ids as $id) {
+                $x = isset($ga[$id]) ? $ga[$id] : null; $y = isset($gb[$id]) ? $gb[$id] : null;
+                if (gx_json($x) === gx_json($y)) { continue; }
+                $w = $sk === 'g' ? 'Semua halaman' : gx_where_page(substr($sk, 2));
+                $from = $y && !empty($y['d']) ? $y['d'] : ($x && !empty($x['d']) ? $x['d'] : ($sk === 'g' ? $id : 'ikon'));
+                $pages[$w] = true;
+                if ($y === null) { $what = 'Ikon ' . $from . ' kembali ke awal'; }
+                elseif (isset($y['i']) && $y['i'] === '') { $what = 'Ikon ' . $from . ' dihapus'; }
+                else { $p2 = array(); if (isset($y['i'])) { $p2[] = 'jadi ' . $y['i']; } if (isset($y['c'])) { $p2[] = 'warna'; } if (isset($y['s'])) { $p2[] = 'ukuran ' . $y['s'] . ' px'; } $what = 'Ikon ' . $from . ' diubah (' . implode(', ', $p2) . ')'; }
+                $lines[] = array('w' => $w, 'k' => 'ikon:' . $sk . ':' . $id, 'sec' => 'ikon', 'what' => $what);
             }
         }
         foreach (array('tema' => 'Tema') as $sec => $lbl) {
@@ -1053,6 +1199,8 @@ if (!function_exists('gx_state')) {
         if (!empty($y['h'])) { $p[] = count($y['h']) . ' disembunyikan'; }
         if (!empty($y['w'])) { $p[] = 'lebar'; }
         if (!empty($y['f'])) { $p[] = 'posisi bebas'; }
+        if (!empty($y['b'])) { $p[] = 'posisi & ukuran bebas'; }   // [GENC-16OKT26-BEBAS]
+        if (!empty($y['c'])) { $p[] = 'warna latar'; }             // [GENC-16OKT26-WARNA]
         if (!$p && !empty($y['a'])) { $p[] = 'susunan awal di halaman ini'; }
         return $p ? ' (' . implode(', ', $p) . ')' : '';
     }
@@ -1080,6 +1228,7 @@ if (!function_exists('gx_state')) {
         $names = gx_page_names();
         if ($pg === 'palletmover' && $ac === 'approval') { return 'Approval'; }
         if ($pg === 'palletmover' && $ac === 'uncompleted') { return 'NOK History'; }
+        if ($pg === 'pantau') { return $ac === 'approval' ? 'Approval' : 'NOK History'; }
         if (isset($names[$pg])) { $n = $names[$pg]; }
         else {
             $n = $pg;

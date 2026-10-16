@@ -14,7 +14,7 @@
  *  (profil per unit, peta nilai lama, approval lama) = sama dengan KPI di halaman mesin.
  *
  *  Menambah mesin baru: 1 baris di genc_hub_machines() (urut = menu). Samakan juga
- *  PalletmoverController::palletmover_hub_machines().
+ *  (Approval / NOK History memakai daftar yang sama lewat genc_reg_hub_machines().)
  * ============================================================================
  */
 require_once __DIR__ . '/GencChecklistBase.php';
@@ -64,7 +64,18 @@ class GencHubReader extends GencChecklistBase{
 			$tab[isset($t['unit']) ? (string) $t['unit'] : ''] = $t;
 		}
 		$can_add = ACL::is_allowed($page . '/add');
-		$one = function($slug, $label, $group, $sub) use ($ctl, $page, $period, $can_add){
+		// [GENC-16OKT26-TEMUAN2] temuan belum beres per unit (aturan & jendela baca sama dengan NOK History)
+		$open = array(); $today_ymd = date('Y-m-d');
+		foreach($ctl->genc_temuan_all($ctl->genc_temuan_from()) as $tu){
+			if($tu['unit'] === self::UNIT_OTHER){ continue; }
+			foreach($tu['items'] as $e){
+				if($e['end_id'] !== null){ continue; }
+				if(!isset($open[$tu['unit']])){ $open[$tu['unit']] = array('n' => 0, 'baru' => 0); }
+				$open[$tu['unit']]['n']++;
+				if($e['start_date'] === $today_ymd){ $open[$tu['unit']]['baru']++; }
+			}
+		}
+		$one = function($slug, $label, $group, $sub) use ($ctl, $page, $period, $can_add, $open){
 			if($slug !== ''){ $ctl->genc_set_unit_ctx($slug); }
 			$items = $ctl->genc_items();
 			$month = $ctl->genc_month_rows($period['bulan'], $period['tahun']);
@@ -87,6 +98,9 @@ class GencHubReader extends GencChecklistBase{
 				'today_count'=> count($today),
 				'menunggu'   => $sum['pending'],
 				'tindakan'   => $sum['issues'],
+				'buka'       => isset($open[$slug]) ? $open[$slug]['n'] : 0,      // [GENC-16OKT26-TEMUAN2] temuan belum beres (semua bulan)
+				'buka_baru'  => isset($open[$slug]) ? $open[$slug]['baru'] : 0,   // ... yang dicatat hari ini
+				'tm_key'     => genc_tm_key($page, $slug, ''),
 				'filled'     => $sum['filled'],
 				'elapsed'    => $sum['elapsed'],
 				'percent'    => $sum['percent'],

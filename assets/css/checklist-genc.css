@@ -1298,3 +1298,163 @@ html.gx-sw .genc-container, html.gx-sw .gs-side__scroll { visibility: hidden; }
 .genc-legend i[style*="#34a853"] { background: var(--gc-ok-solid) !important; }
 .genc-legend i[style*="background:#fff"] { background: var(--gc-surface) !important; }
 .tp-chip { display: inline-block; width: 11px; height: 11px; margin-right: 6px; border-radius: 50%; vertical-align: -1px; box-shadow: 0 0 0 1px rgba(16,24,40,.2); }
+
+/* [GENC-14OKT26-KOTAK] teks tambahan dari Mode edit tampilan (posisi bebas di layar lebar, mengalir di HP) */
+.gx-xhost { position: relative; }
+.gx-xbox { position: absolute; z-index: 6; box-sizing: border-box; padding: 4px 8px; border-radius: 8px; line-height: 1.4; font-family: var(--gc-font); white-space: pre-wrap; overflow-wrap: anywhere; }
+.gx-xbox--soft { background: var(--gc-primary-soft); }
+.gx-xbox--kartu { background: var(--gc-surface); border: 1px solid var(--gc-border); box-shadow: var(--gc-shadow); padding: 10px 14px; }
+.gx-xbox--utama { background: var(--gc-primary); color: var(--gc-on-primary) !important; padding: 8px 14px; }
+.gx-xbox--kuning { background: var(--gc-pr-soft); border: 1px solid var(--gc-pr-line); padding: 8px 12px; }
+.gx-xbox--ac { text-align: center; } .gx-xbox--ar { text-align: right; } .gx-xbox--al { text-align: left; }
+.gx-xbox--flow { position: static; left: auto !important; top: auto !important; width: auto !important; margin: 10px 0; }
+
+/* =========================================================================
+   [GENC-15OKT26-TEMUAN] NOK History = temuan + status (belum beres / sudah beres)
+   ========================================================================= */
+.genc-badge--open  { background: var(--gc-pr-soft); color: var(--gc-pr-text); }
+.genc-badge--muted { background: var(--gc-empty); color: var(--gc-text-2); }
+.genc-tm__per { margin-left: auto; }
+.genc-tm__kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* [16 Okt] 2 tab: Belum beres & Riwayat */
+.genc-tm__kpi .genc-kpi__label { color: var(--gc-text-2); }
+.genc-tm__kpi--buka .genc-kpi__value  { color: var(--gc-pr-text); }
+.genc-tm__kpi--beres .genc-kpi__value { color: var(--gc-ok-text); }
+.genc-tm__kpi.is-active { background: var(--gc-surface); }
+.genc-tm__kpi:not(.is-active) .genc-kpi__value { opacity: .85; }
+.genc-tm__none { color: var(--gc-muted); flex: none; }
+.genc-tm__body { padding: 4px 0 6px; }
+.genc-tm__empty { margin: 0; padding: 14px 18px; color: var(--gc-muted); font-size: 13px; }
+.genc-tm__unit small { font-weight: 500; letter-spacing: 0; text-transform: none; margin-left: 4px; }
+.genc-tm__row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 18px; color: inherit !important; text-decoration: none !important; position: relative; }
+a.genc-tm__row:hover, a.genc-tm__row:focus-visible { background: var(--gc-surface-2); outline: none; }
+a.genc-tm__row:focus-visible { box-shadow: inset 0 0 0 2px var(--gc-primary); }
+.genc-tm__row + .genc-tm__row { border-top: 1px solid var(--gc-border); }
+.genc-tm__row::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--gc-pr-solid); }
+.genc-tm__row--done::before { background: var(--gc-ok-solid); }
+.genc-tm__main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.genc-tm__item { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-weight: 600; line-height: 1.35; }
+.genc-tm__part { min-width: 0; overflow-wrap: anywhere; }
+.genc-tm__val { flex: none; font-size: 10.5px; padding: 1px 6px; position: relative; top: -1px; }
+.genc-tm__meta { font-size: 12px; color: var(--gc-text-2); }
+.genc-tm__meta .fa { color: var(--gc-muted); margin: 0 2px; }
+.genc-tm__note { font-size: 12px; color: var(--gc-muted); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.genc-tm__age { flex: none; font-size: 12px; font-weight: 600; color: var(--gc-text-2); background: var(--gc-empty); border-radius: 999px; padding: 2px 8px; margin-top: 1px; white-space: nowrap; }
+.genc-tm__age.is-long { background: var(--gc-pr-soft); color: var(--gc-pr-text); }
+.genc-tm__age.is-done { background: var(--gc-ok-soft); color: var(--gc-ok-text); }
+.genc .genc-tm__foot { margin-top: 18px; }
+@media (max-width: 768px) {
+    .genc-tm__kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .genc-tm__kpi { padding: 10px 12px; }
+    .genc-tm__kpi .genc-kpi__value { font-size: 20px; }
+    .genc-tm__kpi .genc-kpi__value small { display: none; }
+    .genc-tm__kpi .genc-kpi__hint { display: none; }
+    .genc-tm__kpi .genc-kpi__label { font-size: 12px; }
+    .genc-tm__per { margin-left: 0; width: 100%; }
+    .genc-tm__kper { display: none; }
+}
+@media (max-width: 420px) {
+    .genc-tm__kpi .genc-kpi__label .fa { display: none; }
+}
+
+/* =========================================================================
+   [GENC-16OKT26-TEMUAN2] Status temuan di halaman mesin, detail & Home
+   Checklist tetap merah (fakta hari itu); label ini = status temuannya sekarang.
+   ========================================================================= */
+.genc-tmst { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; line-height: 1.2; padding: 2px 8px; border-radius: 999px; white-space: nowrap; vertical-align: 1px; }
+.genc-tmst .fa { font-size: 11px; }
+.genc-tmst--done { background: var(--gc-ok-soft); color: var(--gc-ok-text); }
+.genc-tmst--open { background: var(--gc-pr-soft); color: var(--gc-pr-text); }
+.genc-tmst--part { background: var(--gc-pr-soft); color: var(--gc-pr-text); }
+.genc-result__text .genc-tmst { margin-left: 2px; }
+.genc-item__tm { margin-top: 4px; font-size: 12px; color: var(--gc-text-2); }
+.genc-item__tm .genc-tmst { margin-right: 4px; }
+.genc-dash__tm { margin-top: 3px; white-space: normal !important; }
+.genc-kpi__hint .genc-tmst { vertical-align: 0; }
+
+/* =========================================================================
+   [GENC-16OKT26-PANEL] Kartu mesin = PANEL ala Looker (Home, Approval, NOK History)
+   Judul tetap di atas, isi digulir di dalam kartu, footer "1–N / total".
+   Tinggi bawaan sama untuk semua kartu (--genc-panel-h); bisa diubah per kartu lewat
+   Mode edit tampilan > Susunan (tarik tepi atas/bawah/samping/sudut).
+   ========================================================================= */
+.genc-panels { --genc-panel-h: 340px; align-items: stretch; }
+.genc-panel { display: flex; flex-direction: column; height: var(--genc-panel-h); min-height: 160px; overflow: hidden; }
+.genc-panel__head { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--gc-border); background: var(--gc-surface); }
+.genc-panel__title { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; font-weight: 700; font-size: 15px; color: var(--gc-text); }
+.genc-panel:not(.has-items) .genc-panel__title { color: var(--gc-text-2); }
+.genc-panel__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.25; }
+.genc-panel__head > .genc-badge, .genc-panel__head > .genc-dash__count, .genc-panel__head > .genc-tm__none { flex: none; white-space: nowrap; }
+.genc-panel__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--gc-border-strong) transparent; }
+.genc-panel__body::-webkit-scrollbar { width: 8px; }
+.genc-panel__body::-webkit-scrollbar-thumb { background: var(--gc-border-strong); border-radius: 8px; border: 2px solid var(--gc-surface); }
+.genc-panel__body:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--gc-primary); }
+.genc-panel__body .genc-hub__group { position: sticky; top: 0; z-index: 1; background: var(--gc-surface); }
+.genc-panel__foot { flex: none; display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-top: 1px solid var(--gc-border); background: var(--gc-surface-2); font-size: 12.5px; color: var(--gc-text-2); white-space: nowrap; }
+.genc-panel__foot > :first-child { margin-right: auto; }
+.genc-panel__foot > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.genc-panel__foot > .genc-badge { flex: none; }
+.genc-panel__range { font-variant-numeric: tabular-nums; color: var(--gc-muted); }
+.genc-panel.is-scrollable .genc-panel__foot { border-top-color: var(--gc-border-strong); }
+.genc-panel .genc-dash__foot { border-radius: 0; }
+a.genc-badge--open:hover { filter: brightness(.96); text-decoration: none; }
+/* isi panel NOK History: 1 baris per unit */
+.genc-tm__urow .genc-hub__name small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.genc-tm__urow.is-done .genc-hub__name { color: var(--gc-text-2); }
+.genc-tm__notice { flex: 1 1 auto; }
+.genc-hub__bar { flex-wrap: wrap; }
+@media (max-width: 768px) {
+    .genc-panels { --genc-panel-h: 320px; }
+}
+
+/* =========================================================================
+   [GENC-16OKT26-PANTAU] Pop-up (NOK History: item temuan satu unit). Perbesar = layar penuh. Esc = tutup.
+   ========================================================================= */
+.genc-modal { position: fixed; inset: 0; z-index: 1060; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--gc-overlay); margin: 0 !important; }
+.genc-modal[hidden] { display: none; }
+.genc-modal__box { width: min(760px, 100%); max-height: min(86vh, 900px); display: flex; flex-direction: column; background: var(--gc-surface); border-radius: var(--gc-radius-lg); box-shadow: var(--gc-shadow-lg); overflow: hidden; color: var(--gc-text); font-family: var(--gc-font); }
+.genc-modal.is-max { padding: 0; }
+.genc-modal.is-max .genc-modal__box { width: 100%; max-height: none; height: 100%; border-radius: 0; }
+.genc-modal__head { flex: none; display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px 12px; border-bottom: 1px solid var(--gc-border); }
+.genc-modal__titles { flex: 1 1 auto; min-width: 0; }
+.genc-modal__kicker { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gc-muted); }
+.genc-modal__title { font-size: 19px; font-weight: 700; margin: 2px 0 2px !important; }
+.genc-modal__sub { font-size: 13px; color: var(--gc-text-2); }
+.genc-tm__open-txt { color: var(--gc-pr-text); }
+.genc-modal__tools { flex: none; display: flex; gap: 2px; }
+.genc-modal__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.genc-modal__foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 18px; border-top: 1px solid var(--gc-border); background: var(--gc-surface-2); }
+.genc-modal .genc-tm__item { color: var(--gc-text) !important; text-decoration: none !important; }
+.genc-modal a.genc-tm__item:hover .genc-tm__part { text-decoration: underline; }
+html.genc-modal-on, html.genc-modal-on body { overflow: hidden; }
+@media (max-width: 768px) {
+    .genc-modal { padding: 0; align-items: flex-end; }
+    .genc-modal__box { width: 100%; max-height: 92vh; border-radius: var(--gc-radius-lg) var(--gc-radius-lg) 0 0; }
+    .genc-modal [data-genc-modal-max] { display: none; }
+}
+/* footer panel Home: baris 1 = rentang + kelengkapan, baris 2 = antrean & temuan belum beres */
+.genc-panel__foot.genc-dash__foot { flex-wrap: wrap; row-gap: 6px; }
+.genc-panel__badges { flex: 1 0 100%; display: flex; gap: 6px; flex-wrap: wrap; overflow: visible !important; }
+/* NOK History: panel tanpa temuan tidak perlu setinggi panel berisi */
+.genc-tm .genc-panel:not(.has-items) { height: auto; min-height: 0; }
+.genc-tm .genc-panel:not(.has-items) .genc-panel__body { flex: none; }
+.genc-tm .genc-panel:not(.has-items) .genc-panel__foot { display: none; }
+
+/* [GENC-16OKT26-BEBAS] kanvas bebas (Mode edit tampilan > Susunan): posisi & ukuran bebas, boleh menumpuk. HP: mengalir. */
+.gx-canvas { position: relative !important; display: block !important; }
+.gx-canvas > .gx-cv { position: absolute !important; margin: 0 !important; box-sizing: border-box; max-width: none !important; min-width: 0; }
+.gx-canvas > .gx-cv.gx-hset:not(.genc-panel) { overflow: auto; }
+/* [GENC-16OKT26-IKON] ikon & teks yang dihapus lewat Mode edit */
+.gx-ihide, .gx-gone { display: none !important; }
+gx-z { display: none; }
+/* [GENC-16OKT26-WARNA] warna latar kotak dari Mode edit tampilan > Susunan (lewat token tema, ikut tema gelap) */
+.gx-bg--kartu   { background: var(--gc-surface) !important; border-color: var(--gc-border) !important; }
+.gx-bg--lembut  { background: var(--gc-surface-2) !important; }
+.gx-bg--utama   { background: var(--gc-primary-soft) !important; border-color: var(--gc-primary-line) !important; }
+.gx-bg--ok      { background: var(--gc-ok-soft) !important; border-color: var(--gc-ok-line) !important; }
+.gx-bg--nok     { background: var(--gc-nok-soft) !important; border-color: var(--gc-nok-line) !important; }
+.gx-bg--pr      { background: var(--gc-pr-soft) !important; border-color: var(--gc-pr-line) !important; }
+.gx-bg--pending { background: var(--gc-pending-soft) !important; border-color: var(--gc-pending-line) !important; }
+.gx-bg--gelap   { background: var(--gc-ink-bg) !important; color: var(--gc-on-ink) !important; border-color: var(--gc-ink-bg) !important; }
+.gx-bg--gelap * { color: inherit; }
+.gx-bg--polos   { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+.gx-bg--gelap .genc-panel__head, .gx-bg--gelap .genc-panel__foot, .gx-bg--gelap .genc-hub__group { background: transparent !important; }

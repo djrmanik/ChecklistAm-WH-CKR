@@ -61,7 +61,7 @@ $gs_logged = (user_login_status() == true);
     $gs_icons = array(
         'home' => 'fa-home', 'palletmover' => 'fa-th-large', 'forklift' => 'fa-truck', 'agv_table_top_lift' => 'fa-rocket',
         'kir3p01dp001' => 'fa-download', 'mesin_geprek' => 'fa-compress', 'conveyor' => 'fa-exchange',
-        'palletmover/approval' => 'fa-check-square-o', 'palletmover/uncompleted' => 'fa-exclamation-triangle',
+        'pantau/approval' => 'fa-check-square-o', 'pantau/temuan' => 'fa-exclamation-triangle',   // [GENC-16OKT26-PANTAU]
         'users' => 'fa-users', 'roles' => 'fa-shield', 'role_permissions' => 'fa-key', 'app_logs' => 'fa-history',
         'master_select' => 'fa-list-ul', 'mesin' => 'fa-sitemap', 'tampilan' => 'fa-paint-brush',
     );
@@ -77,7 +77,7 @@ $gs_logged = (user_login_status() == true);
         $gs_icons[$gs_mp] = $gs_mf['icon'];
         $gs_match[$gs_mp] = array_values(array_unique(array_merge(isset($gs_match[$gs_mp]) ? $gs_match[$gs_mp] : array($gs_mp), $gs_mf['pages'])));
     }
-    $gs_section_of = array('home' => 'main', 'palletmover/approval' => 'pantau', 'palletmover/uncompleted' => 'pantau',
+    $gs_section_of = array('home' => 'main', 'pantau/approval' => 'pantau', 'pantau/temuan' => 'pantau',
         'users' => 'admin', 'master_select' => 'admin');
     $gs_sec_label  = array('main' => '', 'am' => 'Autonomous Maintenance', 'pantau' => 'Pantau', 'admin' => 'Admin & sistem', 'lain' => 'Lainnya');
     $gs_sections   = array('main' => array(), 'am' => array(), 'pantau' => array(), 'admin' => array(), 'lain' => array());

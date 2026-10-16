@@ -177,7 +177,9 @@ class TampilanController extends SecureController{
 				$def = $this->tp_clean(isset($o['d']) ? $o['d'] : '', 600);
 				$w = $this->tp_clean(isset($o['w']) ? $o['w'] : '', 120);
 				$t = (isset($o['t']) && $o['t'] !== null) ? $this->tp_clean($o['t']) : null;
-				if($t === '' || ($t !== null && gx_norm($t) === gx_norm($def))){ $t = null; }   // kosong / sama dengan awal = teks awal
+				if($t === '' && empty($o['hapus'])){ $t = null; }   // kosong tanpa "hapus" (klien lama) = teks awal
+				elseif($t !== null && $t !== '' && gx_norm($t) === gx_norm($def)){ $t = null; }   // sama dengan awal = teks awal
+				// [GENC-14OKT26-TEKS2] $t === '' = teks DIHAPUS (tidak tampil untuk user; di Mode edit tampil samar)
 				$this->tp_set_teks($d, $conf, $k, $t, $def, $w);
 				foreach((isset($o['clear']) && is_array($o['clear']) ? array_slice($o['clear'], 0, 3) : array()) as $ck){
 					if($this->tp_key_ok($ck) && $ck !== $k){ $this->tp_set_teks($d, $conf, $ck, null, $def, $w); }
@@ -221,6 +223,25 @@ class TampilanController extends SecureController{
 				else{ $d['tema'][$k] = $v; }
 				$n++;
 			}
+			elseif($o['op'] === 'kotak'){   // [GENC-14OKT26-KOTAK] {op, sk: 'p|halaman' / 'g', id, spec: {...} / null, from: cakupan lama (pindah cakupan)}
+				$sk = isset($o['sk']) ? (string) $o['sk'] : ''; $id = isset($o['id']) ? (string) $o['id'] : '';
+				if(($sk !== 'g' && !preg_match('#^p\|[a-z0-9_:./\-]{1,200}$#', $sk)) || !preg_match('/^[a-z0-9]{4,16}$/', $id)){ $err[] = 'kotak'; continue; }
+				$spec = isset($o['spec']) && is_array($o['spec']) ? $this->tp_kotak_clean($o['spec']) : null;
+				if(isset($o['spec']) && is_array($o['spec']) && $spec === null){ $err[] = 'kotak'; continue; }
+				$this->tp_set_kotak($d, $conf, $sk, $id, $spec);
+				$from = isset($o['from']) ? (string) $o['from'] : '';
+				if($from !== '' && $from !== $sk && ($from === 'g' || preg_match('#^p\|[a-z0-9_:./\-]{1,200}$#', $from))){ $this->tp_set_kotak($d, $conf, $from, $id, null); }
+				$n++;
+			}
+			elseif($o['op'] === 'ikon'){   // [GENC-16OKT26-IKON] {op, sk: 'p|halaman' / 'g', k: kunci ikon (g: kelas fa-x), spec: {i, c, s, d, n} / null = kembali ke awal}
+				$sk = isset($o['sk']) ? (string) $o['sk'] : ''; $ik = isset($o['k']) ? (string) $o['k'] : '';
+				$ok_sk = $sk === 'g' ? (bool) preg_match('/^fa-[a-z0-9-]{1,40}$/', $ik) : (preg_match('#^p\|[a-z0-9_:./\-]{1,200}$#', $sk) && $ik !== '' && strlen($ik) <= 600 && !preg_match('/[\x00-\x1F]/', $ik));
+				if(!$ok_sk){ $err[] = 'ikon'; continue; }
+				$spec = isset($o['spec']) && is_array($o['spec']) ? gx_ikon_clean($o['spec']) : null;
+				if(isset($o['spec']) && is_array($o['spec']) && $spec === null){ $err[] = 'ikon'; continue; }
+				$this->tp_set_ikon($d, $conf, $sk, $ik, $spec);
+				$n++;
+			}
 			elseif($o['op'] === 'reset'){
 				foreach((isset($o['keys']) && is_array($o['keys']) ? array_slice($o['keys'], 0, 2000) : array()) as $k){
 					if(!$this->tp_key_ok($k)){ continue; }
@@ -229,6 +250,16 @@ class TampilanController extends SecureController{
 					$this->tp_set_teks($d, $conf, $k, null, $def, $w);
 				}
 				foreach((isset($o['data']) && is_array($o['data']) ? $o['data'] : array()) as $dk){ unset($d['data'][(string) $dk]); }
+				if(!empty($o['kotak']) && isset($o['page']) && preg_match('#^[a-z0-9_:./\-]{1,200}$#', (string) $o['page'])){   // Halaman awal: teks tambahan halaman ini ikut dibuang
+					$psk = 'p|' . $o['page'];
+					$ids = array_unique(array_merge(isset($conf['kotak'][$psk]) ? array_keys((array) $conf['kotak'][$psk]) : array(), isset($d['kotak'][$psk]) ? array_keys((array) $d['kotak'][$psk]) : array()));
+					foreach($ids as $kid){ $this->tp_set_kotak($d, $conf, $psk, (string) $kid, null); }
+				}
+				if(!empty($o['ikon']) && isset($o['page']) && preg_match('#^[a-z0-9_:./\-]{1,200}$#', (string) $o['page'])){   // [GENC-16OKT26-IKON] Halaman awal: ikon halaman ini ikut kembali
+					$psk = 'p|' . $o['page'];
+					$ids = array_unique(array_merge(isset($conf['ikon'][$psk]) ? array_keys((array) $conf['ikon'][$psk]) : array(), isset($d['ikon'][$psk]) ? array_keys((array) $d['ikon'][$psk]) : array()));
+					foreach($ids as $kid){ $this->tp_set_ikon($d, $conf, $psk, (string) $kid, null); }
+				}
 				foreach((isset($o['susunan']) && is_array($o['susunan']) ? array_slice($o['susunan'], 0, 500) : array()) as $pair){
 					if(is_array($pair) && count($pair) === 2 && $this->tp_sk_ok((string) $pair[0])){ $this->tp_set_susunan($d, $conf, (string) $pair[0], (string) $pair[1], null); }
 				}
@@ -241,7 +272,7 @@ class TampilanController extends SecureController{
 		if(gx_draft_count($d) === 0){ gx_draft_del(); }
 		elseif(!gx_draft_put($d)){ $this->tp_json(array('ok' => false, 'msg' => 'Draf gagal disimpan.')); }
 		$eff = gx_apply_draft($conf, $d);
-		$this->tp_json(array('ok' => true, 'n' => $n, 'err' => $err, 'count' => gx_draft_count($d), 'draft' => array('teks' => (object) $d['teks'], 'data' => (object) $d['data'], 'susunan' => (object) $d['susunan']), 'eff' => (object) $eff['teks'], 'effS' => (object) $eff['susunan'], 'draftTema' => (object) $d['tema'], 'tema' => (object) $eff['tema'], 'temaCss' => gx_tema_css($eff['tema']), 'temaEff' => gx_tema_eff($eff['tema'])));
+		$this->tp_json(array('ok' => true, 'n' => $n, 'err' => $err, 'count' => gx_draft_count($d), 'draft' => array('teks' => (object) $d['teks'], 'data' => (object) $d['data'], 'susunan' => (object) $d['susunan']), 'eff' => (object) $eff['teks'], 'effS' => (object) $eff['susunan'], 'draftTema' => (object) $d['tema'], 'draftKotak' => (object) $d['kotak'], 'effK' => (object) $eff['kotak'], 'draftIkon' => (object) $d['ikon'], 'effI' => (object) $eff['ikon'], 'tema' => (object) $eff['tema'], 'temaCss' => gx_tema_css($eff['tema']), 'temaEff' => gx_tema_eff($eff['tema'])));
 	}
 
 	protected function tp_sk_ok($sk){
@@ -269,9 +300,73 @@ class TampilanController extends SecureController{
 			}
 			if($f){ $out['f'] = $f; }
 		}
+		// [GENC-16OKT26-BEBAS] posisi & ukuran BEBAS ala Canva: {kunciBlok: [x %, y px, lebar %, tinggi px (0 = otomatis), urutan tumpuk]}
+		if(isset($sp['b']) && is_array($sp['b'])){
+			$b = array(); foreach(array_slice($sp['b'], 0, 200, true) as $bk => $pos){
+				$bk = $k($bk);
+				if($bk === null || !is_array($pos) || count($pos) < 4){ continue; }
+				$x = max(0, min(99, round((float) $pos[0], 2))); $w = max(2, min(100, round((float) $pos[2], 2)));
+				if($x + $w > 100){ $w = round(100 - $x, 2); }
+				$b[$bk] = array($x, max(0, min(30000, (int) round((float) $pos[1]))), $w, max(0, min(5000, (int) round((float) $pos[3]))), max(0, min(999, isset($pos[4]) ? (int) $pos[4] : 0)));
+			}
+			if($b){ $out['b'] = $b; unset($out['f']); }
+		}
+		// [GENC-16OKT26-WARNA] warna latar blok: {kunciBlok: token}
+		if(isset($sp['c']) && is_array($sp['c'])){
+			$c = array(); foreach(array_slice($sp['c'], 0, 200, true) as $bk => $tok){ $bk = $k($bk); $tok = (string) $tok; if($bk !== null && in_array($tok, array('kartu', 'lembut', 'utama', 'ok', 'nok', 'pr', 'pending', 'gelap', 'polos'), true)){ $c[$bk] = $tok; } }
+			if($c){ $out['c'] = $c; }
+		}
 		foreach(array('n' => 80, 'v' => 200) as $f => $max){ if(isset($sp[$f])){ $out[$f] = $this->tp_clean($sp[$f], $max); } }
-		if(!empty($sp['a']) && !isset($out['o']) && !isset($out['h']) && !isset($out['w']) && !isset($out['f'])){ $out['a'] = 1; }   // halaman ini = susunan awal (menimpa "tempat ini")
-		return (isset($out['o']) || isset($out['h']) || isset($out['w']) || isset($out['f']) || isset($out['a'])) ? $out : null;
+		if(!empty($sp['a']) && !isset($out['o']) && !isset($out['h']) && !isset($out['w']) && !isset($out['f']) && !isset($out['b']) && !isset($out['c'])){ $out['a'] = 1; }   // halaman ini = susunan awal (menimpa "tempat ini")
+		return (isset($out['o']) || isset($out['h']) || isset($out['w']) || isset($out['f']) || isset($out['b']) || isset($out['c']) || isset($out['a'])) ? $out : null;
+	}
+
+	/** [GENC-14OKT26-KOTAK] Bersihkan spek teks tambahan; null = tidak sah. */
+	protected function tp_kotak_clean($sp){
+		$t = isset($sp['t']) ? (string) $sp['t'] : '';
+		$t = gx_strip($t);
+		$t = preg_replace('/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/', '', $t);
+		$t = preg_replace('/[\x{E000}-\x{F8FF}]/u', '', (string) $t);
+		$t = preg_replace("/\r\n?/", "\n", (string) $t);
+		$t = preg_replace("/\n{4,}/", "\n\n\n", trim((string) $t));
+		if(function_exists('mb_substr')){ $t = mb_substr($t, 0, 1000, 'UTF-8'); } else { $t = substr($t, 0, 1000); }
+		// [GENC-16OKT26-IKON] kotak boleh berisi ikon saja (+ Ikon) atau ikon + teks
+		$ic = isset($sp['ic']) ? strtolower(trim((string) $sp['ic'])) : '';
+		if($ic !== '' && !in_array($ic, gx_fa_icons(), true)){ return null; }
+		if($t === '' && $ic === ''){ return null; }
+		$num = function ($k, $min, $max, $def) use ($sp) { $v = isset($sp[$k]) && is_numeric($sp[$k]) ? (float) $sp[$k] : $def; return max($min, min($max, $v)); };
+		$pick = function ($k, $list, $def) use ($sp) { $v = isset($sp[$k]) ? (string) $sp[$k] : $def; return in_array($v, $list, true) ? $v : $def; };
+		$out = array(
+			't' => $t,
+			'x' => round($num('x', 0, 97, 10), 2), 'y' => (int) round($num('y', 0, 20000, 0)), 'w' => round($num('w', 3, 100, 30), 2),
+			's' => (int) $pick('s', array('12', '14', '16', '20', '24', '32', '40', '48', '64'), '16'),
+			'b' => !empty($sp['b']) ? 1 : 0, 'i' => !empty($sp['i']) ? 1 : 0,
+			'c' => $pick('c', array('teks', 'redup', 'utama', 'ok', 'nok', 'pr', 'pending'), 'teks'),
+			'bg' => $pick('bg', array('none', 'soft', 'kartu', 'utama', 'kuning'), 'none'),
+			'a' => $pick('a', array('l', 'c', 'r'), 'l'),
+			'anc' => isset($sp['anc']) ? substr(preg_replace('/[\x00-\x1F]/', '', (string) $sp['anc']), 0, 500) : '',
+			'n' => (int) round($num('n', 0, 1e15, 0)),
+		);
+		if($out['x'] + $out['w'] > 100){ $out['w'] = round(100 - $out['x'], 2); }
+		if($ic !== ''){ $out['ic'] = $ic; }
+		return $out;
+	}
+
+	/** [GENC-16OKT26-IKON] Isi 1 ikon di draf. $spec null = kembali ke ikon awal. */
+	protected function tp_set_ikon(&$d, $conf, $sk, $ik, $spec){
+		$has = isset($conf['ikon'][$sk][$ik]);
+		if($spec === null){ if($has){ $d['ikon'][$sk][$ik] = null; } else { unset($d['ikon'][$sk][$ik]); } }
+		elseif($has && gx_json($conf['ikon'][$sk][$ik]) === gx_json($spec)){ unset($d['ikon'][$sk][$ik]); }
+		else{ $d['ikon'][$sk][$ik] = $spec; }
+		if(isset($d['ikon'][$sk]) && !$d['ikon'][$sk]){ unset($d['ikon'][$sk]); }
+	}
+
+	protected function tp_set_kotak(&$d, $conf, $sk, $id, $spec){
+		$has = isset($conf['kotak'][$sk][$id]);
+		if($spec === null){ if($has){ $d['kotak'][$sk][$id] = null; } else { unset($d['kotak'][$sk][$id]); } }
+		elseif($has && gx_json($conf['kotak'][$sk][$id]) === gx_json($spec)){ unset($d['kotak'][$sk][$id]); }
+		else{ $d['kotak'][$sk][$id] = $spec; }
+		if(isset($d['kotak'][$sk]) && !$d['kotak'][$sk]){ unset($d['kotak'][$sk]); }
 	}
 
 	/** Isi 1 grup susunan di draf. $spec null = kembali ke susunan awal. */
@@ -352,7 +447,7 @@ class TampilanController extends SecureController{
 			genc_app_log('tampilan.data', 'genc_tampilan', '', 'Mode edit tampilan: ubah data lewat jalan pintas - ' . implode('; ', $txt));
 		}
 		// draf: perubahan teks sudah masuk versi; perubahan data yang gagal tetap di draf
-		$left = $d ? array('base' => $no ? $no : $cur['no'], 'teks' => array(), 'data' => $d['data'], 'susunan' => array(), 'tema' => array()) : null;
+		$left = $d ? array('base' => $no ? $no : $cur['no'], 'teks' => array(), 'data' => $d['data'], 'susunan' => array(), 'tema' => array(), 'kotak' => array(), 'ikon' => array()) : null;
 		if($left && gx_draft_count($left)){ gx_draft_put($left); } else { gx_draft_del(); }
 		if($no){ $msg = 'Tampilan disimpan sebagai <b>v' . $no . '</b> dan berlaku untuk semua user.'; $type = 'success'; }
 		elseif($data_lines){ $msg = 'Perubahan data disimpan lewat ' . (count($data_lines) > 1 ? 'menunya masing-masing' : 'menunya') . ' (tercatat di riwayatnya). Tidak ada perubahan tampilan lain.'; $type = 'success'; }
@@ -364,10 +459,12 @@ class TampilanController extends SecureController{
 	}
 
 	protected function tp_summary($diff, $data_lines){
-		$nt = 0; $ns = 0; $nm = 0;
-		foreach($diff['lines'] as $l){ if(isset($l['sec'])){ if($l['sec'] === 'tema'){ $nm++; } else { $ns++; } } else { $nt++; } }
+		$nt = 0; $ns = 0; $nm = 0; $nk = 0; $ni = 0;
+		foreach($diff['lines'] as $l){ if(isset($l['sec'])){ if($l['sec'] === 'tema'){ $nm++; } elseif($l['sec'] === 'kotak'){ $nk++; } elseif($l['sec'] === 'ikon'){ $ni++; } else { $ns++; } } else { $nt++; } }
 		$p = array();
 		if($nt){ $p[] = $nt . ' teks'; }
+		if($nk){ $p[] = $nk . ' teks tambahan'; }
+		if($ni){ $p[] = $ni . ' ikon'; }
 		if($ns){ $p[] = 'susunan ' . $ns . ' bagian'; }
 		if($nm){ $p[] = 'tema'; }
 		if($data_lines){ $p[] = count($data_lines) . ' data'; }

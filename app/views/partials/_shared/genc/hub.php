@@ -1,25 +1,20 @@
 <?php
 /**
- * GENERASI C - ringkasan SEMUA MESIN untuk menu "Approval" & "NOK History"
- *                                                  [GENC-24SEP26-PALLETMOVER] K28
- * Data disiapkan PalletmoverController::palletmover_hub() (route palletmover/approval
- * & palletmover/uncompleted - menu tingkat atas yang dulu halaman pallet mover +
- * tombol lintas mesin). Tiap baris = 1 unit; klik = daftar Gen C mesin itu,
- * sudah tersaring status & bulan yang sama.
+ * GENERASI C - menu "Approval": ringkasan SEMUA MESIN            [GENC-24SEP26-PALLETMOVER] K28
+ * [GENC-16OKT26-PANTAU] Data dari PantauController::approval() -> GencPantauReader::approval()
+ * (route pantau/approval; dulu palletmover/approval). NOK History punya halaman sendiri (temuan.php).
+ * Tiap kartu mesin = PANEL ala Looker: judul tetap, daftar unit bisa digulir, footer "1–N / total".
+ * Tiap baris = 1 unit; klik = daftar Gen C mesin itu, sudah tersaring "Menunggu approval" & bulan yang sama.
  */
 require_once ROOT . 'app/views/partials/_shared/genc_helpers.php';
 
 $d       = $this->view_data;
-$mode    = $d['mode'];             // 'menunggu' | 'tindakan'
 $period  = $d['period'];
 $groups  = $d['groups'];
-$total   = $d['total'];
-$routes  = array('menunggu' => 'palletmover/approval', 'tindakan' => 'palletmover/uncompleted');
-$self    = $routes[$mode];
-$is_wait = ($mode === 'menunggu');
-$badge   = $is_wait ? 'genc-badge--pending' : 'genc-badge--nok';
+$total   = (int) $d['total'];
+$self    = 'pantau/approval';
 $n_mesin = 0;
-foreach ($groups as $gr) { if ($gr['sum'][$mode] > 0) { $n_mesin++; } }
+foreach ($groups as $gr) { if ($gr['sum'] > 0) { $n_mesin++; } }
 
 $nama_bulan = checklist_nama_bulan();
 $now_y      = (int) date('Y');
@@ -32,14 +27,12 @@ $base       = array('bulan' => $period['bulan'], 'tahun' => $period['tahun']);
 
     <nav class="genc-crumbs" aria-label="Breadcrumb">
         <a href="<?php print_link('home'); ?>">Home</a><span>/</span>
-        <span><?php echo $is_wait ? 'Approval' : 'NOK History'; ?></span>
+        <span>Approval</span>
     </nav>
     <div class="genc-header">
         <div>
-            <h1 class="genc-title"><?php echo $is_wait ? 'Menunggu approval' : 'Perlu tindakan'; ?> &middot; semua mesin</h1>
-            <p class="genc-subtitle"><?php echo $is_wait
-                ? 'Checklist AM yang belum diparaf SPV / fasilitator'
-                : 'Checklist AM dengan item ' . genc_e(genc_pilihan_label('NOK')) . ' atau ' . genc_e(genc_pilihan_label('PR')); ?> &middot; <?php echo genc_e($period['label']); ?></p>
+            <h1 class="genc-title">Menunggu approval &middot; semua mesin</h1>
+            <p class="genc-subtitle">Checklist AM yang belum diparaf SPV / fasilitator &middot; <?php echo genc_e($period['label']); ?></p>
         </div>
     </div>
 
@@ -59,14 +52,11 @@ $base       = array('bulan' => $period['bulan'], 'tahun' => $period['tahun']);
                 </select>
                 <a class="genc-btn genc-btn--icon genc-btn--ghost<?php echo $period['is_current'] ? ' is-disabled' : ''; ?>" title="Bulan berikutnya" href="<?php echo genc_e(genc_url($self, array('bulan' => $period['next'][0], 'tahun' => $period['next'][1]))); ?>"><i class="fa fa-chevron-right"></i></a>
             </div>
-            <div class="genc-chips" role="tablist" aria-label="Jenis ringkasan">
-                <?php foreach (array('menunggu' => 'Menunggu approval', 'tindakan' => 'Perlu tindakan') as $key => $lbl):
-                    if ($mode !== $key && !ACL::is_allowed($routes[$key])): /* [GENC-25SEP26-AUDIT] dulu link ke 403 (operator: NOK History saja) */ ?>
-                    <span class="genc-chip" style="opacity:.5;cursor:not-allowed" title="Role Anda tidak punya akses menu ini"><?php echo genc_e($lbl); ?><span class="genc-chip__count"><?php echo (int) $total[$key]; ?></span></span>
-                <?php continue; endif; ?>
-                    <a class="genc-chip<?php echo $mode === $key ? ' is-active' : ''; ?>" role="tab" aria-selected="<?php echo $mode === $key ? 'true' : 'false'; ?>"
-                       href="<?php echo genc_e(genc_url($routes[$key], $base)); ?>"><?php echo genc_e($lbl); ?><span class="genc-chip__count"><?php echo (int) $total[$key]; ?></span></a>
-                <?php endforeach; ?>
+            <div class="genc-chips" role="tablist" aria-label="Menu pantau">
+                <a class="genc-chip is-active" role="tab" aria-selected="true" href="<?php echo genc_e(genc_url($self, $base)); ?>">Menunggu approval<span class="genc-chip__count"><?php echo $total; ?></span></a>
+                <?php if (!empty($d['can_nok'])): ?>
+                <a class="genc-chip" role="tab" aria-selected="false" href="<?php echo genc_e(genc_url('pantau/temuan')); ?>" title="NOK History: temuan yang belum beres (semua bulan)">Temuan belum beres<span class="genc-chip__count"><?php echo (int) $d['nok_open']; ?></span></a>
+                <?php endif; ?>
             </div>
         </form>
     </div>
@@ -79,49 +69,40 @@ $base       = array('bulan' => $period['bulan'], 'tahun' => $period['tahun']);
             <div class="genc-empty__title">Tidak ada mesin yang bisa ditampilkan</div>
             <p class="genc-muted">Akun ini belum punya akses ke daftar checklist mesin mana pun. Hubungi admin aplikasi.</p>
         </div></div>
-    <?php else:
-        $fold_btn = '<button type="button" class="genc-btn genc-btn--sm genc-btn--ghost genc-fold__all" data-genc-fold-all="' . $mode . '" hidden><i class="fa fa-expand"></i> <span>Buka semua</span></button>'; ?>
-        <?php if ($total[$mode] === 0): ?>
+    <?php else: ?>
+        <?php if ($total === 0): ?>
             <div class="genc-notice genc-notice--ok" style="margin-bottom:16px">
                 <i class="fa fa-check-circle"></i>
-                <div><strong><?php echo $is_wait ? 'Semua checklist sudah di-approve' : 'Tidak ada temuan'; ?></strong> di <?php echo genc_e($period['label']); ?>.
-                    <?php echo $is_wait ? 'Tidak ada yang menunggu paraf.' : 'Semua item di semua mesin tercatat Baik.'; ?></div>
+                <div><strong>Semua checklist sudah di-approve</strong> di <?php echo genc_e($period['label']); ?>. Tidak ada yang menunggu paraf.</div>
             </div>
         <?php else: ?>
-            <div class="genc-hub__bar"><p class="genc-hub__lead"><strong><?php echo (int) $total[$mode]; ?> checklist</strong> <?php echo $is_wait ? 'menunggu approval' : 'perlu tindakan'; ?> di <?php echo $n_mesin; ?> mesin. Klik nama mesin untuk melihat unitnya.</p><?php echo $fold_btn; ?></div>
+            <p class="genc-hub__lead"><strong><?php echo $total; ?> checklist</strong> menunggu approval di <?php echo $n_mesin; ?> mesin. Klik unit untuk membuka daftarnya.</p>
         <?php endif; ?>
-        <?php if ($total[$mode] === 0): ?><div class="genc-hub__bar"><span></span><?php echo $fold_btn; ?></div><?php endif; ?>
 
-        <?php /* [GENC-08OKT26-HUB] kartu mesin sama besar: daftar unit tertutup + ringkasan, klik judul untuk buka / tutup */ ?>
-        <div class="genc-hub" data-genc-folds="<?php echo $mode; ?>">
-            <?php foreach ($groups as $gr): $gn = (int) $gr['sum'][$mode];
-                $fid = $mode . '-' . substr(md5($gr['title']), 0, 8);
-                $nu = count($gr['rows']); $nu_hit = 0; foreach ($gr['rows'] as $r) { if ((int) $r[$mode] > 0) { $nu_hit++; } } ?>
-                <section class="genc-card genc-hub__card genc-fold<?php echo $gn > 0 ? ' has-items' : ''; ?>" data-genc-fold="<?php echo $fid; ?>">
-                    <button type="button" class="genc-card__head genc-fold__head" aria-expanded="true" aria-controls="<?php echo $fid; ?>" data-genc-fold-btn>
-                        <span class="genc-card__title"><?php if (!empty($gr['icon'])): ?><i class="fa <?php echo genc_e($gr['icon']); ?> genc-dash__ico" aria-hidden="true"></i> <?php endif; ?><span class="genc-fold__name" title="<?php echo genc_e($gr['title']); ?>"><?php echo genc_e($gr['title']); ?></span></span>
+        <div class="genc-hub genc-panels">
+            <?php foreach ($groups as $gr): $gn = (int) $gr['sum'];
+                $nu = count($gr['rows']); $nu_hit = 0; foreach ($gr['rows'] as $r) { if ((int) $r['menunggu'] > 0) { $nu_hit++; } } ?>
+                <section class="genc-card genc-panel<?php echo $gn > 0 ? ' has-items' : ''; ?>" data-genc-panel>
+                    <div class="genc-panel__head">
+                        <span class="genc-panel__title"><?php if (!empty($gr['icon'])): ?><i class="fa <?php echo genc_e($gr['icon']); ?> genc-dash__ico" aria-hidden="true"></i><?php endif; ?><span class="genc-panel__name" title="<?php echo genc_e($gr['title']); ?>"><?php echo genc_e($gr['title']); ?></span></span>
                         <?php if ($gn > 0): ?>
-                            <span class="genc-badge <?php echo $badge; ?>"><?php echo $gn; ?> <?php echo $is_wait ? 'menunggu' : 'temuan'; ?></span>
+                            <span class="genc-badge genc-badge--pending"><?php echo $gn; ?> menunggu</span>
                         <?php else: ?>
                             <span class="genc-badge genc-badge--ok"><i class="fa fa-check"></i> Beres</span>
                         <?php endif; ?>
-                        <i class="fa fa-chevron-down genc-fold__chev" aria-hidden="true"></i>
-                    </button>
-                    <div class="genc-fold__sum" aria-hidden="true">
-                        <span class="genc-fold__txt"><?php echo $nu; ?> unit<?php echo $nu_hit ? ' &middot; <b>' . $nu_hit . ' unit ' . ($is_wait ? 'menunggu approval' : 'perlu tindakan') . '</b>' : ' &middot; tidak ada yang ' . ($is_wait ? 'menunggu' : 'perlu tindakan'); ?></span>
                     </div>
-                    <div class="genc-hub__rows genc-fold__body" id="<?php echo $fid; ?>">
-                        <?php $cur = null; foreach ($gr['rows'] as $r): $n = (int) $r[$mode];
-                            $q = array_merge($base, array('status' => $mode));
+                    <div class="genc-panel__body" tabindex="0" aria-label="Daftar unit <?php echo genc_e($gr['title']); ?>">
+                        <?php $cur = null; foreach ($gr['rows'] as $r): $n = (int) $r['menunggu'];
+                            $q = array_merge($base, array('status' => 'menunggu'));
                             if ($r['unit'] !== '') { $q['unit'] = $r['unit']; }
                             if ($r['group'] !== '' && $r['group'] !== $cur): $cur = $r['group']; ?>
                                 <div class="genc-hub__group"><?php echo genc_e($cur); ?></div>
                             <?php endif; ?>
-                            <a class="genc-hub__row<?php echo $n > 0 ? ' has-items' : ''; ?>" href="<?php echo genc_e(genc_url($r['page'], $q)); ?>">
+                            <a class="genc-hub__row<?php echo $n > 0 ? ' has-items' : ''; ?>" data-genc-prow href="<?php echo genc_e(genc_url($r['page'], $q)); ?>">
                                 <span class="genc-hub__name"><?php echo genc_e($r['label']); ?>
                                     <?php if ($r['sub'] !== '' && $r['sub'] !== $r['label']): ?><small><?php echo genc_e($r['sub']); ?></small><?php endif; ?></span>
                                 <?php if ($n > 0): ?>
-                                    <span class="genc-badge <?php echo $badge; ?>"><?php echo $n; ?></span>
+                                    <span class="genc-badge genc-badge--pending"><?php echo $n; ?></span>
                                 <?php else: ?>
                                     <span class="genc-hub__zero">&ndash;</span>
                                 <?php endif; ?>
@@ -129,14 +110,17 @@ $base       = array('bulan' => $period['bulan'], 'tahun' => $period['tahun']);
                             </a>
                         <?php endforeach; ?>
                     </div>
+                    <div class="genc-panel__foot">
+                        <span class="genc-panel__range" data-genc-prange><?php echo $nu; ?> unit</span>
+                        <span><?php echo $nu_hit ? $nu_hit . ' unit menunggu' : 'tidak ada yang menunggu'; ?></span>
+                    </div>
                 </section>
             <?php endforeach; ?>
         </div>
 
-        <p class="genc-small genc-muted" style="margin-top:16px">
+        <p class="genc-small genc-muted" style="margin-top:16px"><i class="fa fa-info-circle"></i>
             Angka dihitung dengan aturan yang sama dengan ringkasan di halaman tiap mesin, untuk <?php echo genc_e($period['label']); ?>.
-            <?php echo $is_wait ? 'Approve dilakukan di halaman mesinnya (tombol Approve di daftar atau detail).' : '&ldquo;Perlu tindakan&rdquo; = ada item ' . genc_e(genc_pilihan_label('NOK')) . ' atau ' . genc_e(genc_pilihan_label('PR')) . ', sudah di-approve atau belum.'; ?>
-            Mesin yang tidak bisa dibuka akun ini tidak ditampilkan.
+            Approve dilakukan di halaman mesinnya (tombol Approve di daftar atau detail). Mesin yang tidak bisa dibuka akun ini tidak ditampilkan.
         </p>
     <?php endif; ?>
 

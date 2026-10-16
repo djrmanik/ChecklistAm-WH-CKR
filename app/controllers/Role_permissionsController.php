@@ -47,6 +47,12 @@ class Role_permissionsController extends SecureController{
 		foreach((array) $db->rawQuery("SELECT page_name, action_name FROM role_permissions WHERE role_id = ?", array($role_id)) as $r){
 			$have[strtolower($r['page_name']) . '/' . strtolower($r['action_name'])] = 1;
 		}
+		// [GENC-16OKT26-PANTAU] hak lama palletmover/approval & palletmover/uncompleted = Menu Approval / NOK History (pantau/*)
+		foreach(ACL::$alias as $new => $old){
+			if(isset($have[$old])){ $have[$new] = 1; }
+			list($lp, $la) = explode('/', $old, 2);
+			unset($all[$lp][$la]);   // bukan "aksi lain" Pallet Mover yang disembunyikan
+		}
 		$sections = array(); $scope = array(); $known_pages = array(); $taken = array(); $hidden = 0;
 		foreach(genc_perm_catalog() as $sec){
 			foreach($sec['rows'] as $row){ foreach($row['actions'] as $a){ $taken[$row['page'] . '/' . $a] = 1; } $known_pages[$row['page']] = 1; }
@@ -116,6 +122,9 @@ class Role_permissionsController extends SecureController{
 		$add = array(); $del = array();
 		foreach($want as $pa => $_){ if(!isset($m['have'][$pa])){ $add[] = $pa; } }
 		foreach($m['have'] as $pa => $_){ if(isset($m['scope'][$pa]) && !isset($want[$pa])){ $del[] = $pa; } }
+		// [GENC-16OKT26-PANTAU] mencabut Menu Approval / NOK History ikut mencabut baris lama (palletmover/approval|uncompleted);
+		// baris baru hanya ditambah kalau role ini belum punya hak lamanya (have sudah memperhitungkan hak lama)
+		foreach($del as $pa){ if(isset(ACL::$alias[$pa])){ $del[] = ACL::$alias[$pa]; } }
 		$db = $this->GetModel();
 		foreach($add as $pa){
 			list($pg, $ac) = explode('/', $pa, 2);

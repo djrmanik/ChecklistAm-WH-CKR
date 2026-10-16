@@ -58,13 +58,13 @@ class Menu{
 		),
 		
 		array(
-			'path' => 'palletmover/approval', 
+			'path' => 'pantau/approval', 
 			'label' => 'Approval', 
 			'icon' => '<i class="fa fa-check-square-o "></i>'
 		),
 		
 		array(
-			'path' => 'palletmover/uncompleted', 
+			'path' => 'pantau/temuan', 
 			'label' => 'NOK History', 
 			'icon' => '<i class="fa fa-cogs "></i>'
 		),

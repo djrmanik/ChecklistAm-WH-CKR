@@ -17,8 +17,8 @@ class HomeController extends SecureController{
 	function index(){
 		$reader = new GencHubReader();
 		$data = $reader->collect();
-		$data['can_approval'] = ACL::is_allowed('palletmover/approval');
-		$data['can_nok']      = ACL::is_allowed('palletmover/uncompleted');
+		$data['can_approval'] = ACL::is_allowed('pantau/approval');   // [GENC-16OKT26-PANTAU]
+		$data['can_nok']      = ACL::is_allowed('pantau/temuan');
 		$this->view->page_title = "Home";
 		$this->render_view("home/index.php", $data, "main_layout.php");
 	}

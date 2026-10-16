@@ -23,8 +23,9 @@ if (!function_exists('genc_perm_catalog')) {
                 array('page' => 'conveyor',           'name' => 'Conveyor',               'actions' => $m, 'machine' => true),
             )),
             array('title' => 'Pantau (semua mesin)', 'rows' => array(
-                array('page' => 'palletmover', 'name' => 'Menu Approval',    'actions' => array('approval'),    'single' => true, 'sub' => 'ringkasan antrean approval semua mesin'),
-                array('page' => 'palletmover', 'name' => 'Menu NOK History', 'actions' => array('uncompleted'), 'single' => true, 'sub' => 'ringkasan temuan semua mesin'),
+                // [GENC-16OKT26-PANTAU] route sendiri (dulu palletmover/approval & palletmover/uncompleted; hak lama tetap dibaca - ACL::$alias)
+                array('page' => 'pantau', 'name' => 'Menu Approval',    'actions' => array('approval'), 'single' => true, 'sub' => 'ringkasan antrean approval semua mesin'),
+                array('page' => 'pantau', 'name' => 'Menu NOK History', 'actions' => array('temuan'),   'single' => true, 'sub' => 'temuan semua mesin & statusnya'),
             )),
             array('title' => 'Admin & sistem', 'rows' => array(
                 array('page' => 'users',            'name' => 'Users',            'actions' => array('list', 'add', 'edit', 'delete')),

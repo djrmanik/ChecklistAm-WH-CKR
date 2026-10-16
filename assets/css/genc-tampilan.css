@@ -227,3 +227,87 @@ body.gx-is-resizing, body.gx-is-resizing * { cursor: ew-resize !important; user-
 @media (min-width: 761px) { html.gx-drawer-on .gx-bar { left: calc((100vw - 420px) / 2); max-width: calc(100vw - 444px); } html.gx-drawer-on .gx-bar .gx-btn:not([data-gx-act=simpan]) .gx-lbl, html.gx-drawer-on .gx-bar__brand span { display: none; } }
 .gx-modal__box textarea, .gx-pop textarea, .gx-drawer input[type=search], .gx-stb select { background: var(--gc-surface, #fff); color: var(--gc-text, #101828); }
 .gx-tm__chip { display: inline-block; width: 11px; height: 11px; margin-right: 6px; border-radius: 50%; vertical-align: -1px; box-shadow: 0 0 0 1px rgba(16,24,40,.2); }
+
+/* ---------------------------------------------------------------- teks dihapus & teks dinamis   [GENC-14OKT26-TEKS2] */
+html.gx-edit gx-t.gx-del { opacity: .5; text-decoration: line-through; text-decoration-thickness: 1.5px; }
+html.gx-edit.gx-nav gx-t.gx-del, html.gx-edit.gx-sus gx-t.gx-del { display: none; }   /* Jelajah / Susunan: seperti user lain melihatnya */
+.gx-pbtn--danger { color: var(--gc-nok-text, #d92d20) !important; }
+.gx-stb__hint { margin-top: 6px; padding: 5px 8px 1px; border-top: 1px solid rgba(255,255,255,.1); font-size: 11.5px; color: #98a2b3; max-width: 360px; }
+
+/* ---------------------------------------------------------------- teks tambahan (editor)   [GENC-14OKT26-KOTAK] */
+html.gx-edit:not(.gx-nav) .gx-xbox--edit, html.gx-edit.gx-sus .gx-xbox--edit { cursor: move; outline: 1px dashed rgba(124, 58, 237, .45); outline-offset: 2px; user-select: none; }
+html.gx-edit .gx-xbox--edit:hover { outline-color: rgba(124, 58, 237, .9); }
+html.gx-edit .gx-xbox--edit.is-sel { outline: 2px solid #7c3aed; outline-offset: 2px; }
+html.gx-edit .gx-xbox--edit.is-typing { cursor: text; user-select: text; outline: 2px solid #7c3aed; }
+html.gx-edit .gx-xbox--edit.is-typing .gx-xbox__t { outline: none; min-height: 1.4em; }
+html.gx-edit.gx-nav:not(.gx-sus) .gx-xbox--edit { cursor: auto; outline: none; user-select: text; }
+.gx-xbox__h { display: none; position: absolute; top: 50%; width: 10px; height: 26px; margin-top: -13px; border-radius: 5px; background: #fff; border: 2px solid #7c3aed; cursor: ew-resize; box-shadow: 0 1px 3px rgba(16,24,40,.3); }
+.gx-xbox__h--l { left: -8px; } .gx-xbox__h--r { right: -8px; }
+html.gx-edit:not(.gx-nav) .gx-xbox--edit.is-sel .gx-xbox__h, html.gx-edit.gx-sus .gx-xbox--edit.is-sel .gx-xbox__h { display: block; }
+.gx-xbox--flow .gx-xbox__h { display: none !important; }
+.gx-xguide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed #7c3aed; z-index: 7; pointer-events: none; }
+.gx-xdot { width: 22px; height: 22px; padding: 0 !important; border-radius: 50% !important; border: 2px solid rgba(255,255,255,.25) !important; }
+.gx-xdot.is-on { border-color: #fff !important; box-shadow: 0 0 0 2px #7c3aed; }
+.gx-xdot--teks { background: var(--gc-text, #101828) !important; } .gx-xdot--redup { background: var(--gc-muted, #667085) !important; }
+.gx-xdot--utama { background: var(--gc-primary, #1d6fe8) !important; } .gx-xdot--ok { background: var(--gc-ok, #12863a) !important; }
+.gx-xdot--nok { background: var(--gc-nok, #d92d20) !important; } .gx-xdot--pr { background: var(--gc-pr, #b54708) !important; }
+.gx-xdot--pending { background: var(--gc-pending, #6941c6) !important; }
+.gx-xtb__size { width: 76px; }
+
+/* ---------------------------------------------------------------- [GENC-16OKT26-IKON] ikon bisa diklik & diubah (alat Teks) */
+html.gx-edit:not(.gx-nav) i.fa:not(.gx-bar i):not(.gx-pop i):not(.gx-stb i):not(.gx-drawer i):not(.gx-modal i):not(.gx-xbox i) { cursor: pointer; border-radius: 4px; transition: box-shadow .12s, background-color .12s; }
+html.gx-edit:not(.gx-nav) i.fa:not(.gx-bar i):not(.gx-pop i):not(.gx-stb i):not(.gx-drawer i):not(.gx-modal i):not(.gx-xbox i):hover { background: rgba(122, 90, 248, .14); box-shadow: 0 0 0 2px rgba(122, 90, 248, .7); }
+html.gx-edit i.fa.gx-on { background: rgba(122, 90, 248, .18); box-shadow: 0 0 0 2px #7a5af8; }
+html.gx-edit i.fa.gx-idel { opacity: .35; outline: 1.5px dashed rgba(217, 45, 32, .7); outline-offset: 2px; }
+html.gx-edit i.fa.gx-idim { opacity: .35; }
+html.gx-edit .gx-ihide { display: inline-block !important; opacity: .35; }   /* di Mode edit yang dihapus tetap terlihat samar */
+.gx-pop--ikon { width: 420px; }
+.gx-ipv { display: flex; align-items: center; gap: 12px; margin: 6px 0 10px; }
+.gx-ipv__big { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; background: var(--gc-surface-2, #f9fafb); border: 1px solid var(--gc-border, #e4e7ec); font-size: 24px; flex: none; }
+.gx-ipv__big.is-del { opacity: .35; text-decoration: line-through; }
+.gx-ipv__name b { display: block; font-size: 14px; text-transform: capitalize; }
+.gx-ipv__name small { color: var(--gc-muted, #667085); }
+.gx-ipick__q { width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--gc-border-strong, #cfd4dc); border-radius: 8px; font: inherit; background: var(--gc-surface, #fff); color: var(--gc-text, #101828); }
+.gx-ipick__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 4px; max-height: 196px; overflow-y: auto; margin: 8px 0 4px; padding: 2px; }
+.gx-ipick__i { height: 36px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--gc-text, #101828); font-size: 16px; cursor: pointer; }
+.gx-ipick__i:hover { background: var(--gc-surface-2, #f2f4f7); border-color: var(--gc-border, #e4e7ec); }
+.gx-ipick__i.is-on { background: rgba(122, 90, 248, .14); border-color: #7a5af8; color: #5b3fd4; }
+.gx-ipick__more { font-size: 11.5px; color: var(--gc-muted, #667085); margin-bottom: 6px; }
+.gx-pop__row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.gx-pop__lbl { font-size: 12px; font-weight: 600; color: var(--gc-text-2, #475467); margin-right: 2px; }
+.gx-pop__sel { height: 30px; border: 1px solid var(--gc-border-strong, #cfd4dc); border-radius: 7px; padding: 0 6px; font: inherit; margin-left: auto; background: var(--gc-surface, #fff); color: var(--gc-text, #101828); }
+.gx-pop .gx-xdot { border: 2px solid var(--gc-surface, #fff) !important; box-shadow: 0 0 0 1px var(--gc-border-strong, #cfd4dc); cursor: pointer; }
+.gx-pop .gx-xdot.is-on { box-shadow: 0 0 0 2px #7a5af8; }
+.gx-xdot--awal { background: repeating-linear-gradient(45deg, var(--gc-surface, #fff) 0 4px, var(--gc-border-strong, #cfd4dc) 4px 6px) !important; }
+.gx-xtb__ipick { margin-top: 8px; padding: 8px; border-radius: 10px; background: var(--gc-surface, #fff); color: var(--gc-text, #101828); width: 340px; max-width: calc(100vw - 32px); }
+.gx-xbox--ic { display: flex; align-items: center; gap: .4em; }
+.gx-xbox--ic.gx-xbox--ac { justify-content: center; } .gx-xbox--ic.gx-xbox--ar { justify-content: flex-end; }
+.gx-xbox__ic { flex: none; line-height: 1; }
+.gx-xbox--ic .gx-xbox__t:empty { display: none; }
+
+/* ---------------------------------------------------------------- [GENC-16OKT26-BEBAS] kanvas bebas: pegangan 8 arah & garis bantu */
+.gx-handles { position: absolute; z-index: 2045; pointer-events: none; outline: 2px solid #7a5af8; outline-offset: 0; border-radius: 4px; }
+.gx-handle { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 3px; background: #fff; border: 2px solid #7a5af8; box-shadow: 0 1px 3px rgba(16, 24, 40, .25); pointer-events: auto; touch-action: none; }
+.gx-handle--n  { left: 50%; top: 0;    cursor: ns-resize; }   .gx-handle--s  { left: 50%; top: 100%;  cursor: ns-resize; }
+.gx-handle--e  { left: 100%; top: 50%; cursor: ew-resize; }   .gx-handle--w  { left: 0;   top: 50%;   cursor: ew-resize; }
+.gx-handle--ne { left: 100%; top: 0;   cursor: nesw-resize; } .gx-handle--sw { left: 0;   top: 100%;  cursor: nesw-resize; }
+.gx-handle--nw { left: 0;   top: 0;    cursor: nwse-resize; } .gx-handle--se { left: 100%; top: 100%; cursor: nwse-resize; }
+.gx-snap { position: absolute; z-index: 2046; pointer-events: none; background: #f04438; }
+.gx-snap--v { width: 1px; } .gx-snap--h { height: 1px; }
+html.gx-edit.gx-sus .gx-sel { cursor: move; }
+html.gx-edit.gx-sus .gx-canvas { outline: 1px dashed rgba(122, 90, 248, .35); outline-offset: 4px; }
+html.gx-edit.gx-sus .gx-canvas > .gx-cv.gx-dragging { opacity: .92; box-shadow: 0 16px 32px rgba(16, 24, 40, .22) !important; }
+body.gx-is-dragging, body.gx-is-resizing { user-select: none; -webkit-user-select: none; }
+body.gx-is-resizing * { cursor: inherit; }
+.gx-stb__dim { font-size: 11.5px; color: #98a2b3; font-variant-numeric: tabular-nums; margin-right: auto; }
+@media (max-width: 768px) { .gx-handles, .gx-snap { display: none; } }
+.gx-pop--ikon { width: 440px; }
+.gx-pop--ikon .gx-pop__foot { flex-wrap: wrap; gap: 6px; }
+.gx-pop--ikon .gx-pop__foot .gx-pbtn { white-space: nowrap; }
+.gx-bgdot { box-shadow: 0 0 0 1px rgba(255,255,255,.35); }
+.gx-bgdot--awal { background: repeating-linear-gradient(45deg, #fff 0 4px, #cfd4dc 4px 6px) !important; }
+.gx-bgdot--kartu { background: #fff !important; } .gx-bgdot--lembut { background: #eaecf0 !important; }
+.gx-bgdot--utama { background: var(--gc-primary-soft, #eaf2fe) !important; } .gx-bgdot--ok { background: var(--gc-ok-soft, #e7f6ec) !important; }
+.gx-bgdot--nok { background: var(--gc-nok-soft, #fdecea) !important; } .gx-bgdot--pr { background: var(--gc-pr-soft, #fef4e6) !important; }
+.gx-bgdot--pending { background: var(--gc-pending-soft, #f2eefd) !important; } .gx-bgdot--gelap { background: #101828 !important; }
+.gx-bgdot--polos { background: transparent !important; border-style: dashed !important; }

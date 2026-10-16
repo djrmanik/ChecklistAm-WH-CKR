@@ -258,6 +258,22 @@ abstract class GencChecklistBase extends SecureController{
 			return $this->genc_export_raw($month_rows, $items, $period, $raw_fmt);
 		}
 
+		// [GENC-16OKT26-TEMUAN2] status temuan (aturan & jendela baca sama dengan NOK History): checklist NOK tetap
+		// tercatat NOK; chip "Belum beres" = checklist yang temuannya masih terbuka; kartu = temuan unit ini yang belum beres
+		$tm = $this->genc_temuan_of($this->genc_temuan_from($period['bulan'], $period['tahun']), (string) $unit);
+		$month_rows = $this->genc_attach_temuan($month_rows, $tm, $items);
+		$tm_info = array(
+			'open'    => count($tm['open']),
+			'oldest'  => $tm['oldest'],
+			'days'    => $tm['oldest'] !== null ? $this->genc_days_between($tm['oldest'], date('Y-m-d')) : 0,
+			'parts'   => array(),
+			'rec_open'=> 0,
+		);
+		foreach($tm['open'] as $e){ $tm_info['parts'][$e['part']] = (isset($tm_info['parts'][$e['part']]) ? $tm_info['parts'][$e['part']] : 0) + 1; }
+		arsort($tm_info['parts']);
+		$tm_info['parts'] = array_slice($tm_info['parts'], 0, 3, true);
+		foreach($month_rows as $row){ if($this->genc_tm_open($row)){ $tm_info['rec_open']++; } }
+
 		// Filter status & pencarian dikerjakan di PHP: data 1 bulan cuma
 		// puluhan baris, dan ringkasan di atas tetap butuh data sebulan penuh.
 		$filtered = array();
@@ -266,10 +282,10 @@ abstract class GencChecklistBase extends SecureController{
 			if($hari > 0){
 				if((int) date('j', strtotime($row['date_created'])) !== $hari){ continue; }
 				$day_n['records']++;
-				if(!$this->genc_is_ok($row, $items)){ $day_n['issues']++; }
+				if($this->genc_tm_open($row)){ $day_n['issues']++; }   // [GENC-16OKT26-TEMUAN2] chip "Belum beres"
 				if(!$this->genc_is_approved($row)){ $day_n['pending']++; }
 			}
-			if($status === 'tindakan' && $this->genc_is_ok($row, $items)){ continue; }
+			if($status === 'tindakan' && !$this->genc_tm_open($row)){ continue; }   // [GENC-16OKT26-TEMUAN2] = temuan belum beres
 			if($status === 'menunggu' && $this->genc_is_approved($row)){ continue; }
 			if($q !== ''){
 				$hay = strtolower($row['user_created'] . ' ' . $row['keterangan'] . ' ' . $row['user_approve'] . ' ' . $row['date_created']);
@@ -296,6 +312,8 @@ abstract class GencChecklistBase extends SecureController{
 			'records'      => $records,
 			'summary'      => $this->genc_summary($month_rows, $items, $period),
 			'today'        => $this->genc_today_rows($unit),
+			'temuan'       => $tm_info,       // [GENC-16OKT26-TEMUAN2]
+			'can_nok'      => ACL::is_allowed('pantau/temuan'),
 			// [GENC-24SEP26-AGV] tab "lainnya" tidak punya unit -> tidak bisa isi dari sini
 			'can_add'      => ACL::is_allowed("$p/add") && $unit !== self::UNIT_OTHER && !genc_reg_is_inactive($p, (string) $unit),   // [GENC-06OKT26-MESIN] nonaktif: tanpa tombol isi
 			'can_edit'     => ACL::is_allowed("$p/edit"),
@@ -314,7 +332,16 @@ abstract class GencChecklistBase extends SecureController{
 		$c = $this->genc_c();
 		$p = $c['page'];
 		$record = $this->genc_find($rec_id);
+		// [GENC-16OKT26-TEMUAN2] status temuan checklist ini (beres di checklist mana, oleh siapa) - data tidak diubah
+		$tm_st = null;
+		if($record && !$this->genc_is_ok($record, $this->genc_items())){
+			$ts = strtotime((string) $record['date_created']);
+			$tm = $this->genc_temuan_of($this->genc_temuan_from((int) date('n', $ts), (int) date('Y', $ts)), $this->genc_multi() ? (string) $record['_unit'] : '');
+			$tm_st = isset($tm['by_rec'][(int) $record['id']]) ? $this->genc_temuan_rec_status($tm['by_rec'][(int) $record['id']]) : null;
+		}
 		$data = array(
+			'temuan'      => $tm_st,
+			'can_view_all'=> ACL::is_allowed("$p/view"),
 			'items'       => $this->genc_items(),
 			'sections'    => $this->genc_sections(),
 			'record'      => $record,
@@ -1002,6 +1029,212 @@ abstract class GencChecklistBase extends SecureController{
 		$rows = $db->get($t, array(0, 1000), $fields);
 		if($db->getLastError()){ $this->set_page_error(); }
 		return is_array($rows) ? array_map(array($this, 'genc_normalize_row'), $rows) : array();
+	}
+
+	// ---------------------------------------------------------------------
+	//  [GENC-15OKT26-TEMUAN] STATUS TEMUAN (K111-K113) - dihitung, TIDAK disimpan.
+	//  Data checklist tidak pernah diubah: checklist yang NOK tetap NOK.
+	//  1 temuan = 1 item di 1 unit yang dinilai NOK/PR pada satu atau beberapa
+	//  checklist berturut-turut. Temuan "beres" begitu checklist BERIKUTNYA untuk
+	//  unit yang sama menilai item itu Baik (hari itu juga atau sesudahnya).
+	//  Dipakai NOK History (GencPantauReader), halaman mesin, detail & Home. [GENC-16OKT26]
+	// ---------------------------------------------------------------------
+
+	/** Berapa bulan ke belakang yang dibaca untuk status temuan (+ bulan yang dipilih kalau lebih lama). */
+	const TEMUAN_BULAN = 12;
+
+	/** Batas baris per tabel untuk status temuan (yang terbaru yang dibaca). */
+	const TEMUAN_MAX_ROWS = 20000;
+
+	/** Nilai 1 item di baris yang SUDAH dinilai -> 'OK'|'NOK'|'PR'; null = tidak dihitung (aturan sama dengan genc_eval_row). */
+	protected function genc_item_state($row, $it){
+		if(!isset($row['_vals']) || !array_key_exists($it['db'], $row['_vals'])){ return null; }
+		$std = strtoupper(trim((string) $row['_vals'][$it['db']]));
+		$c = $this->genc_c();
+		if(!empty($c['legacy_values'])){
+			// sudah dipetakan genc_map_value(); isian lama yang tidak dikenal = tidak dihitung
+			return in_array($std, $this->genc_allowed_values(), true) ? $std : null;
+		}
+		if($std === '' && !empty($it['baru'])){ return null; }   // item baru, checklist lama kosong
+		if($std === 'OK' || $std === 'PR'){ return $std; }
+		return 'NOK';                                              // conveyor/geprek: selain OK = temuan (sama dengan sebelumnya)
+	}
+
+	/** Record MENTAH sejak $from (Y-m-d), urut lama -> baru. Kalau melebihi batas, yang terbaru yang dibaca. */
+	protected function genc_rows_since($from){
+		$t  = $this->tablename;
+		$db = $this->GetModel();
+		$db->where("$t.date_created >= ?", array($from));
+		$db->orderBy("$t.date_created", "DESC");
+		$db->orderBy("$t.id", "DESC");
+		$rows = $db->get($t, array(0, self::TEMUAN_MAX_ROWS), $this->genc_fields());
+		if($db->getLastError()){ $this->set_page_error(); }
+		return is_array($rows) ? array_reverse($rows) : array();
+	}
+
+	/**
+	 * Temuan dari baris SATU unit (sudah dinilai, urut lama -> baru).
+	 * @return array daftar temuan: db, part, section, val (nilai awal), last_val, checks (berapa checklist NOK/PR),
+	 *               start_* (checklist pertama), last_* (checklist NOK/PR terakhir), end_* (checklist Baik; null = belum beres)
+	 */
+	protected function genc_findings($rows){
+		$items = $this->genc_items();
+		$open = array(); $out = array();
+		foreach($rows as $r){
+			$d = substr((string) $r['date_created'], 0, 10);
+			foreach($items as $it){
+				$s = $this->genc_item_state($r, $it);
+				if($s === null){ continue; }
+				$k = $it['db'];
+				if($s === 'OK'){
+					if(isset($open[$k])){
+						$open[$k]['end_id'] = $r['id']; $open[$k]['end_date'] = $d; $open[$k]['end_user'] = (string) $r['user_created'];
+						$out[] = $open[$k];
+						unset($open[$k]);
+					}
+					continue;
+				}
+				if(isset($open[$k])){
+					$open[$k]['last_id'] = $r['id']; $open[$k]['last_date'] = $d; $open[$k]['last_val'] = $s; $open[$k]['checks']++;
+					$open[$k]['ids'][] = (int) $r['id'];   // [GENC-16OKT26-TEMUAN2] checklist mana saja yang mencatat temuan ini
+					continue;
+				}
+				$open[$k] = array(
+					'db' => $k, 'part' => (string) $it['part'], 'section' => isset($it['section']) ? (string) $it['section'] : '',
+					'val' => $s, 'last_val' => $s, 'checks' => 1, 'ids' => array((int) $r['id']),
+					'start_id' => $r['id'], 'start_date' => $d, 'start_user' => (string) $r['user_created'],
+					'note' => trim((string) $r['keterangan']),
+					'last_id' => $r['id'], 'last_date' => $d,
+					'end_id' => null, 'end_date' => null, 'end_user' => null,
+				);
+			}
+		}
+		foreach($open as $e){ $out[] = $e; }
+		return $out;
+	}
+
+	/**
+	 * Semua temuan tabel ini sejak $from, per unit. Unit arsip dilewati.
+	 * @return array daftar array('unit' => slug ('' = mesin 1 unit), 'raw' => nomor unit di data (unit tak dikenal), 'items' => temuan)
+	 */
+	protected function genc_temuan_all($from){
+		// [GENC-16OKT26-TEMUAN2] hasil disimpan per request (Home, halaman mesin & detail memanggilnya lebih dari sekali);
+		// konteks profil unit dikembalikan seperti semula sesudahnya (halaman mesin tetap memakai profil unitnya sendiri)
+		if(isset($this->genc_cache['temuan_all'][$from])){ return $this->genc_cache['temuan_all'][$from]; }
+		$had_ctx = array_key_exists('ctx_unit', $this->genc_cache);
+		$old_ctx = $had_ctx ? $this->genc_cache['ctx_unit'] : null;
+		$out = $this->genc_temuan_all_read($from);
+		if($had_ctx){ $this->genc_cache['ctx_unit'] = $old_ctx; } else { unset($this->genc_cache['ctx_unit']); }
+		$this->genc_cache['temuan_all'][$from] = $out;
+		return $out;
+	}
+
+	protected function genc_temuan_all_read($from){
+		$raw = $this->genc_rows_since($from);
+		$units = $this->genc_units();
+		$out = array();
+		if(empty($units)){
+			$rows = array();
+			foreach($raw as $r){ $rows[] = $this->genc_normalize_row($r); }
+			$out[] = array('unit' => '', 'raw' => '', 'items' => $this->genc_findings($rows));
+			return $out;
+		}
+		$f = $this->genc_unit_field();
+		$by = array();
+		foreach($raw as $r){
+			$slug = $this->genc_row_unit($r);
+			// unit tak dikenal: dipisah per nomor unit di data supaya temuan unit berbeda tidak tercampur
+			$key = $slug === self::UNIT_OTHER ? $slug . '|' . checklist_norm_unit(isset($r[$f]) ? $r[$f] : '') : $slug;
+			$by[$key][] = $r;
+		}
+		foreach($by as $key => $list){
+			$slug = strpos($key, '|') !== false ? self::UNIT_OTHER : $key;
+			if($slug !== self::UNIT_OTHER && !empty($units[$slug]['archived'])){ continue; }
+			$this->genc_set_unit_ctx($slug);                     // profil unit ini (forklift electric/diesel)
+			$rows = array();
+			foreach($list as $r){ $rows[] = $this->genc_normalize_row($r); }
+			$items = $this->genc_findings($rows);
+			if(empty($items)){ continue; }
+			$out[] = array('unit' => $slug, 'raw' => $slug === self::UNIT_OTHER ? trim((string) $list[0][$f]) : '', 'items' => $items);
+		}
+		return $out;
+	}
+
+	// ---------------------------------------------------------------------
+	//  [GENC-16OKT26-TEMUAN2] STATUS TEMUAN DI SEMUA TEMPAT (halaman mesin, detail, Home, NOK History)
+	//  Satu aturan, satu jendela baca. Checklist yang punya item NOK/PR tetap tercatat apa adanya;
+	//  yang ditambahkan hanya STATUS-nya: belum beres / beres (checklist berikutnya menilai Baik).
+	// ---------------------------------------------------------------------
+
+	/** Awal jendela baca temuan: tgl 1, TEMUAN_BULAN bulan sebelum bulan berjalan, atau bulan terpilih kalau lebih lama. */
+	protected function genc_temuan_from($bulan = 0, $tahun = 0){
+		$from = date('Y-m-d', mktime(0, 0, 0, (int) date('n') - self::TEMUAN_BULAN, 1, (int) date('Y')));
+		if((int) $bulan > 0 && (int) $tahun > 0){
+			$m = sprintf('%04d-%02d-01', (int) $tahun, (int) $bulan);
+			if($m < $from){ $from = $m; }
+		}
+		return $from;
+	}
+
+	/**
+	 * Temuan SATU unit (mesin 1 unit: semuanya) sejak $from.
+	 * @return array('items' => semua temuan, 'open' => yang belum beres, 'oldest' => Y-m-d temuan terbuka tertua|null,
+	 *               'by_rec' => [id checklist => daftar temuan yang dicatat checklist itu])
+	 */
+	protected function genc_temuan_of($from, $unit){
+		$list = array();
+		$multi = $this->genc_multi();
+		foreach($this->genc_temuan_all($from) as $u){
+			if($multi && (string) $u['unit'] !== (string) $unit){ continue; }
+			foreach($u['items'] as $e){ $list[] = $e; }
+		}
+		$by_rec = array(); $open = array(); $oldest = null;
+		foreach($list as $e){
+			foreach($e['ids'] as $id){ $by_rec[$id][] = $e; }
+			if($e['end_id'] === null){
+				$open[] = $e;
+				if($oldest === null || $e['start_date'] < $oldest){ $oldest = $e['start_date']; }
+			}
+		}
+		return array('items' => $list, 'open' => $open, 'oldest' => $oldest, 'by_rec' => $by_rec);
+	}
+
+	/** Status temuan 1 checklist: open / done (jumlah item), end_* = checklist Baik PALING AKHIR (kalau ada yang beres), items [db => temuan]. */
+	protected function genc_temuan_rec_status($list){
+		$st = array('open' => 0, 'done' => 0, 'end_id' => null, 'end_date' => null, 'end_user' => '', 'items' => array());
+		foreach((array) $list as $e){
+			$st['items'][$e['db']] = $e;
+			if($e['end_id'] === null){ $st['open']++; continue; }
+			$st['done']++;
+			if($st['end_date'] === null || $e['end_date'] > $st['end_date'] || ($e['end_date'] === $st['end_date'] && (int) $e['end_id'] > (int) $st['end_id'])){
+				$st['end_id'] = $e['end_id']; $st['end_date'] = $e['end_date']; $st['end_user'] = (string) $e['end_user'];
+			}
+		}
+		return $st;
+	}
+
+	/**
+	 * Tempel status temuan ('_tm') ke baris yang punya item NOK/PR. Baris yang tidak tercatat di jendela baca
+	 * (hanya kalau data > TEMUAN_MAX_ROWS) dianggap belum beres - lebih aman daripada menyatakan beres.
+	 */
+	protected function genc_attach_temuan($rows, $tm, $items){
+		foreach($rows as $i => $r){
+			if($this->genc_is_ok($r, $items)){ continue; }
+			$id = (int) $r['id'];
+			$rows[$i]['_tm'] = isset($tm['by_rec'][$id]) ? $this->genc_temuan_rec_status($tm['by_rec'][$id])
+				: array('open' => 1, 'done' => 0, 'end_id' => null, 'end_date' => null, 'end_user' => '', 'items' => array());
+		}
+		return $rows;
+	}
+
+	/** Baris checklist yang temuannya masih ada yang belum beres. */
+	protected function genc_tm_open($row){ return isset($row['_tm']) && $row['_tm']['open'] > 0; }
+
+	/** Selisih hari kalender (Y-m-d). */
+	protected function genc_days_between($a, $b){
+		$x = strtotime($a . ' 00:00:00'); $y = strtotime($b . ' 00:00:00');
+		if(!$x || !$y || $y <= $x){ return 0; }
+		return (int) round(($y - $x) / 86400);
 	}
 
 	/** Record hari ini (untuk tombol "Isi checklist hari ini" & peringatan isi dobel). [GENC-24SEP26-AGV] per unit */
